@@ -65,8 +65,8 @@
 
                         <div>
                             <div class="flex justify-between items-start mb-1">
-                                <span :class="['text-[10px] font-bold px-1.5 py-0.5 rounded border', getColorClass(block.program).tagBg, getColorClass(block.program).tagBorder, getColorClass(block.program).tagText]">
-                                    {{ block.grade }}{{ block.className }}班
+                                <span :class="['text-[10px] font-bold px-1.5 py-0.5 rounded border font-mono', getColorClass(block.program).tagBg, getColorClass(block.program).tagBorder, getColorClass(block.program).tagText]">
+                                    {{ block.subjectCode ? block.subjectCode : block.grade }}-{{ block.className }}
                                 </span>
                                 <span :class="['text-[10px] font-mono font-bold px-1.5 py-0.5 rounded shadow-sm text-white', getColorClass(block.program).badgeBg]">
                                     {{ getProgramCode(block.program) }}
@@ -124,7 +124,7 @@
                     👨‍🏫 按老師時間表檢視
                 </button>
                 <button @click="currentTab = 'slot'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'slot' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-gray-700']">
-                    📊 按排課時段檢閱
+                    📊 按排課時段檢視
                 </button>
                 <button @click="currentTab = 'stats'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'stats' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-gray-700']">
                     📈 教學時數統計
@@ -200,7 +200,7 @@
                     <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 rounded-xl text-white flex justify-between items-center shadow-sm">
                         <div>
                             <h3 class="font-bold text-base">👨‍🏫 全院教師教學時數核算明細</h3>
-                            <p class="text-xs text-indigo-100 mt-0.5">每門班級課程基準為 45 學時。分子為已排入課表的學時，分母為生成拼圖塊的總需求學時。</p>
+                            
                         </div>
                         <div class="bg-white/10 px-3 py-1.5 rounded-lg text-right">
                             <span class="text-xs block opacity-80">全院總計師資</span>
@@ -215,7 +215,7 @@
                                     <th class="p-3 pl-5 w-32">教師姓名</th>
                                     <th class="p-3">任教班級與科目明細</th>
                                     <th class="p-3 w-48 text-center">排課進度條</th>
-                                    <th class="p-3 pr-5 w-48 text-right">已排學時 / 總學時 (分母)</th>
+                                    <th class="p-3 pr-5 w-48 text-right">已排學時 / 總學時 </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -264,14 +264,14 @@
 
                 <div v-if="currentTab !== 'stats'" class="grid grid-cols-6 gap-2 h-full min-h-[620px]">
                     
-                    <div class="bg-gray-100 p-3 text-center font-bold text-gray-500 rounded-lg flex items-center justify-center border text-xs">節數 / 時間</div>
-                    <div v-for="(dayName, dayIdx) in ['星期一', '星期二', '星期三', '星期四', '星期五']" :key="dayIdx" class="bg-slate-100 p-3 text-center font-bold text-gray-600 rounded-lg flex items-center justify-center border text-xs">
+                   <div class="bg-gray-100 p-3 text-center font-extrabold text-gray-600 rounded-lg flex items-center justify-center border text-sm">節數 / 時間</div>
+                    <div v-for="(dayName, dayIdx) in ['星期一', '星期二', '星期三', '星期四', '星期五']" :key="dayIdx" class="bg-slate-100 p-3 text-center font-extrabold text-slate-700 rounded-lg flex items-center justify-center border text-sm">
                         {{ dayName }}
                     </div>
 
                     <template v-for="slot in timeSlots" :key="slot.num">
                         <div class="bg-gray-50 border p-2 flex flex-col justify-center items-center rounded-lg text-center shadow-sm">
-                            <span class="font-bold text-gray-600 text-xs">第 {{ slot.num }} 節</span>
+                            <span class="font-extrabold text-gray-700 text-sm">第 {{ slot.num }} 節</span>
                             <span class="text-[10px] text-indigo-600 mt-1 font-mono bg-white px-1 py-0.5 rounded border">{{ slot.time }}</span>
                         </div>
 
@@ -282,8 +282,8 @@
                                 <div v-for="item in getCellBlocks(day, slot.num)" :key="item.id" draggable="true" @dragstart="onDragStartFromGrid($event, item)" :class="['p-2 rounded-lg shadow-sm h-full w-full flex flex-col justify-between relative group cursor-grab hover:shadow-md transition-all border min-h-[85px]', searchTeacher && item.teacher === searchTeacher ? 'ring-4 ring-amber-400 border-amber-500 bg-amber-50/90' : getColorClass(item.program).bg, getColorClass(item.program).border]">
                                     <div>
                                         <div class="flex justify-between items-center mb-1">
-                                            <span :class="['text-[9px] font-bold px-1 py-0.2 rounded', getColorClass(item.program).tagBg, getColorClass(item.program).tagText]">
-                                                {{ item.grade }}{{ item.className }}班
+                                            <span :class="['text-[9px] font-bold px-1 py-0.2 rounded font-mono', getColorClass(item.program).tagBg, getColorClass(item.program).tagText]">
+                                                {{ item.subjectCode ? item.subjectCode : item.grade }}-{{ item.className }}
                                             </span>
                                             <span :class="['text-[9px] font-mono font-bold px-1.5 py-0.2 rounded shadow-xs text-white', getColorClass(item.program).badgeBg]">
                                                 {{ getProgramCode(item.program) }}
@@ -311,8 +311,8 @@
                                 <div v-for="item in getTeacherCellBlocks(day, slot.num)" :key="item.id" :class="['p-2 rounded-lg shadow-sm h-full w-full flex flex-col justify-between border min-h-[85px] bg-amber-50/90 border-amber-300 ring-2 ring-amber-200']">
                                     <div>
                                         <div class="flex justify-between items-center mb-1">
-                                            <span class="text-[9px] font-bold px-1 py-0.2 rounded bg-indigo-600 text-white">
-                                                {{ item.block.grade }}{{ item.block.className }}班
+                                            <span class="text-[9px] font-bold px-1 py-0.2 rounded bg-indigo-600 text-white font-mono">
+                                                {{ item.block.subjectCode ? item.block.subjectCode : item.block.grade }}-{{ item.block.className }}
                                             </span>
                                             <span class="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-600 text-white shadow-xs">
                                                 {{ getProgramCode(item.block.program) }}
@@ -378,7 +378,8 @@
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
                             <tr class="bg-gray-100 border-b text-gray-600">
-                                <th class="p-2 pl-4">科目名稱</th>
+                                <th class="p-2 pl-4 w-32">科目編號</th>
+                                <th class="p-2">科目名稱</th>
                                 <th class="p-2">授課老師</th>
                                 <th class="p-2 w-48">班級範圍設定 (大寫字母)</th>
                                 <th class="p-2 w-36">每週節數</th>
@@ -388,7 +389,12 @@
                         <tbody>
                             <tr v-for="(row, index) in formRows" :key="index" class="border-b hover:bg-slate-50/50">
                                 <td class="p-2 pl-4">
-                                    <input type="text" v-model="row.subject" placeholder="例如：會計學" class="w-full border rounded p-1.5 bg-white focus:outline-indigo-500">
+                                    <tr v-for="(row, index) in formRows" :key="index" class="border-b hover:bg-slate-50/50">
+                                <td class="p-2 pl-4">
+                                    <input type="text" v-model="row.subjectCode" placeholder="例如：BAE106" class="w-full border rounded p-1.5 bg-white focus:outline-indigo-500 font-mono font-bold uppercase">
+                                </td>
+                                <td class="p-2">
+                                    <input type="text" v-model="row.subject" placeholder="例如：會計學導論I" class="w-full border rounded p-1.5 bg-white focus:outline-indigo-500">
                                 </td>
                                 <td class="p-2">
                                     <input type="text" v-model="row.teacher" placeholder="例如：李迪" class="w-full border rounded p-1.5 bg-white focus:outline-indigo-500">
@@ -542,8 +548,10 @@
                 const showModal = ref(false);
                 const formCommon = ref({ program: "應用經濟學學士學位課程", grade: "大一" });
                 const formRows = ref([
-                    { subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }
+                    { subjectCode: "", subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }
                 ]);
+
+                function addFormRow() { formRows.value.push({ subjectCode: "", subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }); }
 
                 const availableClassesForView = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"];
 
@@ -602,7 +610,6 @@
                     showModal.value = true;
                 }
 
-                function addFormRow() { formRows.value.push({ subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }); }
                 function removeFormRow(index) { if (formRows.value.length > 1) formRows.value.splice(index, 1); }
 
                 function getRowClassesArray(row) {
@@ -627,6 +634,7 @@
                                     id: `B_${timestamp}_${count++}`,
                                     program: formCommon.value.program,
                                     grade: formCommon.value.grade,
+                                    subjectCode: row.subjectCode.trim().toUpperCase(),
                                     subject: row.subject.trim(),
                                     teacher: row.teacher.trim(),
                                     className: cls
@@ -696,7 +704,7 @@
                             statsMap[tName] = { name: tName, classSet: new Set(), totalBlocksCount: 0, scheduledBlocksCount: 0 };
                         }
                         
-                        const classKey = `${block.subject}${block.grade}${block.className}班`;
+                        const classKey = `${block.subject} ${block.subjectCode ? block.subjectCode : block.grade}-${block.className}`;
                         statsMap[tName].classSet.add(classKey);
                         statsMap[tName].totalBlocksCount += 1; // 分母拼圖塊 +1
                     });
@@ -710,7 +718,7 @@
                             statsMap[tName] = { name: tName, classSet: new Set(), totalBlocksCount: 0, scheduledBlocksCount: 0 };
                         }
                         
-                        const classKey = `${item.block.subject}${item.block.grade}${item.block.className}班`;
+                        const classKey = `${item.block.subject} ${item.block.subjectCode ? item.block.subjectCode : item.block.grade}-${item.block.className}`;
                         statsMap[tName].classSet.add(classKey);
                         
                         statsMap[tName].totalBlocksCount += 1;     // 既然出現在這，代表它也是生成的總拼圖之一 (分母)
