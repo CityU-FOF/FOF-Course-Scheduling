@@ -68,15 +68,17 @@
                     <span class="bg-emerald-100 text-[#004D2C] text-xs px-2 py-0.5 rounded-full font-bold">{{ filteredUnassignedBlocks.length }} 塊</span>
                 </h3>
                 
-                <div class="flex-1 overflow-y-auto space-y-2 pr-1" @dragover.prevent>
+             <div class="flex-1 overflow-y-auto space-y-2 pr-1" @dragover.prevent>
                     <div v-for="block in filteredUnassignedBlocks" 
                          :key="block.id" 
                          draggable="true"
                          @dragstart="onDragStartFromPool($event, block)"
-                         :class="['p-3 rounded-lg shadow-sm cursor-grab hover:shadow transition relative flex flex-col justify-between min-h-[95px]', getColorClass(block.program).bg, getColorClass(block.program).border]">
+                         :class="['p-3 rounded-lg shadow-sm cursor-grab hover:shadow transition relative flex flex-col justify-between min-h-[95px] pr-8', getColorClass(block.program).bg, getColorClass(block.program).border]">
                         
+                        <button @click.stop="deleteUnassignedBlock(block)" class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center shadow transition-transform active:scale-95 z-20 font-bold" title="徹底刪除此拼圖塊">×</button>
+
                         <div>
-                            <div class="flex justify-between items-start mb-1">
+                            <div class="flex justify-between items-start mb-1 pr-2">
                                 <span :class="['text-[10px] font-bold px-1.5 py-0.5 rounded border font-mono', getColorClass(block.program).tagBg, getColorClass(block.program).tagBorder, getColorClass(block.program).tagText]">
                                     {{ block.subjectCode ? block.subjectCode : block.grade }}-{{ block.className }}
                                 </span>
@@ -742,10 +744,17 @@
                     }
                 }
 
-                function removeSchedule(blockWithOrigin) {
+               function removeSchedule(blockWithOrigin) {
                     const originalItem = blockWithOrigin.originItem;
                     timetable.value = timetable.value.filter(item => item !== originalItem);
                     unassignedBlocks.value.push(originalItem.block);
+                }
+
+                // 🆕 新增：從待排池清單中徹底刪除指定的拼圖塊
+                function deleteUnassignedBlock(block) {
+                    if (confirm(`確定要刪除「${block.subject} (${block.teacher})」這塊預備拼圖嗎？`)) {
+                        unassignedBlocks.value = unassignedBlocks.value.filter(b => b.id !== block.id);
+                    }
                 }
 
                 // 🚀 核心修改點 1 & 4：Excel 清單重構、大一變1、統計頁移除中括號 []
@@ -888,7 +897,7 @@
                     searchTeacher, allTeachersList, checkTeacherHasClassElsewhere, getTeacherElsewhereDetails, getTeacherLessonCount,
                     showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
                     openModal, addFormRow, removeFormRow, onDragStartFromPool, onDragStartFromGrid, onDrop, 
-                    getCellBlocks, getTeacherCellBlocks, getSlotAllBlocks, getSlotDensityClass, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules,
+                    getCellBlocks, getTeacherCellBlocks, getSlotAllBlocks, getSlotDensityClass, removeSchedule, deleteUnassignedBlock, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules,
                     currentTab, teacherStatsList
                 };
             }
