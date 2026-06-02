@@ -63,8 +63,8 @@
                             <span class="text-[10px] font-bold px-1.5 py-0.5 bg-indigo-50 text-indigo-700 rounded border border-indigo-100">
                                 {{ block.grade }}{{ block.className }}班
                             </span>
-                            <span class="text-[10px] font-mono font-bold text-gray-500 bg-gray-200 px-1 rounded">
-                                {{ programCodes[block.program] }}
+                            <span class="text-[10px] font-mono font-bold text-white bg-slate-500 px-1.5 py-0.5 rounded shadow-sm">
+                                {{ getProgramCode(block.program) }}
                             </span>
                         </div>
                         <div class="font-bold text-gray-800 text-sm mb-1">{{ block.subject }}</div>
@@ -155,8 +155,8 @@
                                         <span class="text-[10px] font-bold px-1.5 py-0.2 bg-white/60 text-indigo-800 rounded">
                                             {{ item.grade }}{{ item.className }}班
                                         </span>
-                                        <span class="text-[10px] font-mono font-bold px-1 bg-black/5 text-gray-600 rounded">
-                                            {{ programCodes[item.program] }}
+                                        <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 bg-slate-600 text-white rounded shadow-sm">
+                                            {{ getProgramCode(item.program) }}
                                         </span>
                                     </div>
                                     <div class="font-bold text-gray-900 text-xs leading-tight mb-1">{{ item.subject }}</div>
@@ -286,13 +286,27 @@
                     "金融學博士學位課程"
                 ];
 
-                // 【第一步新增】學位課程代碼對照表
                 const programCodes = {
                     "應用經濟學學士學位課程": "BAECF",
                     "金融學碩士學位課程": "MFICF",
                     "金融科技碩士學位課程": "MFTBF",
                     "金融學博士學位課程": "DFICF"
                 };
+
+                // 【防呆核心函數】確保無論字串有沒有空格、或者抓不到時，都有代號輸出
+                function getProgramCode(progName) {
+                    if (!progName) return "N/A";
+                    const cleanName = progName.trim();
+                    if (programCodes[cleanName]) {
+                        return programCodes[cleanName];
+                    }
+                    // 模糊匹配：如果名字包含關鍵字，自動配對
+                    if (cleanName.includes("應用經濟")) return "BAECF";
+                    if (cleanName.includes("金融學碩士")) return "MFICF";
+                    if (cleanName.includes("金融科技")) return "MFTBF";
+                    if (cleanName.includes("金融學博士")) return "DFICF";
+                    return "N/A";
+                }
 
                 const grades = ["大一", "大二", "大三", "大四", "研一", "研二", "博一", "博二", "博三"];
 
@@ -486,7 +500,7 @@
 
                         timeSlots.forEach(slot => {
                             const rowData = { 
-                                "學位課程代碼": programCodes[prog] || "N/A",
+                                "學位課程代碼": getProgramCode(prog),
                                 "學位課程": prog, 
                                 "年級班級": clsInfo, 
                                 "節數/時間": `第${slot.num}節 (${slot.time})` 
@@ -539,7 +553,7 @@
                 }
 
                 return {
-                    timeSlots, programs, programCodes, grades, unassignedBlocks, timetable,
+                    timeSlots, programs, programCodes, getProgramCode, grades, unassignedBlocks, timetable,
                     filterProgram, filterGrade, filterClass, viewProgram, viewGrade, viewClass,
                     showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
                     openModal, addFormRow, removeFormRow, onDragStartFromPool, onDragStartFromGrid, onDrop, 
