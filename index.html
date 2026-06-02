@@ -3,130 +3,162 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>學院智能排課系統2026</title>
+    <title>金融學院排課系統</title>
+    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- 引入 XLSX 庫，用於無後端一鍵導出 Excel -->
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans antialiased text-gray-800">
 
     <div id="app" class="flex h-screen overflow-hidden p-4">
         
-        <div class="w-80 bg-white p-4 rounded-xl shadow-lg mr-4 flex flex-col border border-gray-200">
-            <div class="mb-4">
-                <h3 class="font-bold text-lg text-gray-700 flex items-center justify-between">
-                    <span>待排課拼圖塊</span>
-                    <span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded-full">{{ unassignedBlocks.length }} 節</span>
-                </h3>
-                <p class="text-xs text-gray-400 mt-1">💡 滑鼠按住下方卡片，直接拖入右邊 5×8 課表格子即可排課。</p>
+        <!-- ================= 左側欄：操作與待排課拼圖池 ================= -->
+        <div class="w-96 bg-white p-4 rounded-xl shadow-lg mr-4 flex flex-col border border-gray-200 overflow-hidden">
+            
+            <!-- 1. 頂部：自定義生成拼圖塊按鈕 -->
+            <div class="mb-4 pb-4 border-b border-gray-200">
+                <button @click="showModal = true" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm shadow transition flex items-center justify-center space-x-1">
+                    <span>➕ 創建/批量生成拼圖塊</span>
+                </button>
             </div>
 
-            <div class="space-y-2 mb-4">
-                <select v-model="filterLevel" class="w-full border border-gray-300 rounded p-2 text-sm bg-gray-50 focus:outline-indigo-500">
-                    <option value="">🎯 所有學歷/年級</option>
-                    <option value="本科-大一">本科 - 大一</option>
-                    <option value="本科-大二">本科 - 大二</option>
-                    <option value="本科-大三">本科 - 大三</option>
-                    <option value="本科-大四">本科 - 大四</option>
-                    <option value="碩士">碩士課程</option>
-                    <option value="博士">博士課程</option>
-                </select>
-            </div>
-
-            <div class="flex-1 overflow-y-auto space-y-2 pr-1" @dragover.prevent>
-                <div v-for="block in filteredUnassignedBlocks" 
-                     :key="block.id" 
-                     draggable="true"
-                     @dragstart="onDragStart($event, block)"
-                     class="p-3 bg-indigo-50 border border-indigo-200 rounded-lg shadow-sm cursor-grab hover:bg-indigo-100 active:cursor-grabbing transition relative group">
-                    <div class="flex justify-between items-start mb-1">
-                        <span class="text-[11px] font-bold px-1.5 py-0.5 bg-indigo-200 text-indigo-800 rounded">{{ block.level }}-{{ block.className }}</span>
-                        <span class="text-xs text-gray-500 font-medium">{{ block.teacher }}</span>
-                    </div>
-                    <div class="font-bold text-gray-800 text-sm">{{ block.subject }}</div>
+            <!-- 2. 中部：待排課拼圖池的篩選器 -->
+            <div class="mb-4 space-y-2 bg-gray-50 p-3 rounded-lg border">
+                <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">篩選待排課池</h4>
+                <div>
+                    <label class="text-xs text-gray-500">選擇課程：</label>
+                    <select v-model="filterProgram" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white focus:outline-indigo-500 mt-1">
+                        <option value="">🎯 所有課程</option>
+                        <option v-for="prog in programs" :key="prog" :value="prog">{{ prog }}</option>
+                    </select>
                 </div>
-                <div v-if="filteredUnassignedBlocks.length === 0" class="text-center text-gray-400 py-8 text-sm">
-                    暫無符合篩選的待排課程
+                <div>
+                    <label class="text-xs text-gray-500">選擇班級：</label>
+                    <select v-model="filterClass" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white focus:outline-indigo-500 mt-1">
+                        <option value="">🎯 所有班級</option>
+                        <option v-for="cls in availableClassesInPool" :key="cls" :value="cls">{{ cls }}班</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 3. 下部：滾動卡片清單（拼圖池） -->
+            <div class="flex-1 overflow-hidden flex flex-col">
+                <h3 class="font-bold text-sm text-gray-700 mb-2 flex items-center justify-between">
+                    <span>待排課拼圖塊清單</span>
+                    <span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full">{{ filteredUnassignedBlocks.length }} 塊</span>
+                </h3>
+                
+                <div class="flex-1 overflow-y-auto space-y-2 pr-1" @dragover.prevent>
+                    <div v-for="block in filteredUnassignedBlocks" 
+                         :key="block.id" 
+                         draggable="true"
+                         @dragstart="onDragStart($event, block)"
+                         class="p-3 bg-indigo-50/70 border border-indigo-200 rounded-lg shadow-sm cursor-grab hover:bg-indigo-100 active:cursor-grabbing transition relative group">
+                        <div class="text-[11px] font-bold text-indigo-800 bg-indigo-200/60 px-1.5 py-0.5 rounded inline-block mb-1">
+                            {{ block.className }}班
+                        </div>
+                        <div class="font-bold text-gray-800 text-sm mb-1">{{ block.subject }}</div>
+                        <div class="flex justify-between items-center text-xs text-gray-500">
+                            <span>授課: {{ block.teacher }}</span>
+                            <span class="text-[10px] text-slate-400 max-w-[150px] truncate" :title="block.program">{{ block.program }}</span>
+                        </div>
+                    </div>
+                    <div v-if="filteredUnassignedBlocks.length === 0" class="text-center text-gray-400 py-12 text-sm">
+                        暫無符合篩選的待排課程拼圖
+                    </div>
                 </div>
             </div>
         </div>
 
+        <!-- ================= 右側欄：排課視窗 ================= -->
         <div class="flex-1 bg-white p-5 rounded-xl shadow-lg flex flex-col border border-gray-200 overflow-hidden">
             
-            <div class="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
+            <!-- 頂部控制與導出 -->
+            <div class="flex justify-between items-center mb-4 pb-4 border-b border-gray-100">
                 <div>
-                    <h1 class="font-bold text-2xl text-gray-800">學院 5 × 8 圖像化排課棋盤</h1>
-                    <p class="text-xs text-gray-500 mt-1">支援老師/學生課表實時同步，自動進行多維衝突檢查</p>
+                    <h1 class="font-bold text-2xl text-gray-800">金融學院排課系統</h1>
+                    <p class="text-xs text-gray-500 mt-1">排課視窗：精確班級課表視圖</p>
                 </div>
                 
-                <div class="flex items-center space-x-3">
-                    <button @click="exportData" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition">
-                        📥 下載備份檔案
+                <!-- 行政管理與 Excel 導出 -->
+                <div class="flex items-center space-x-2">
+                    <button @click="exportToExcel" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow transition flex items-center space-x-1">
+                        📊 一鍵導出 EXCEL (供領導查閱)
                     </button>
-                    <label class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow transition cursor-pointer">
-                        📤 上傳還原檔案
+                    <button @click="exportData" class="px-2 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded-lg transition" title="下載 JSON 備份">
+                        📥 備份
+                    </button>
+                    <label class="px-2 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded-lg transition cursor-pointer" title="還原 JSON 備份">
+                        📤 還原
                         <input type="file" @change="importData" class="hidden" accept=".json">
                     </label>
-                    <button @click="clearAllSchedules" class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg shadow transition">
-                        ⚠️ 重設清空課表
+                    <button @click="clearAllSchedules" class="px-2 py-2 bg-red-500 hover:bg-red-600 text-white text-xs rounded-lg transition" title="清空排課表">
+                        ⚠️ 重設
                     </button>
                 </div>
             </div>
 
-            <div class="bg-gray-50 p-3 rounded-xl mb-4 flex items-center justify-between border border-gray-200">
-                <div class="flex space-x-2">
-                    <button @click="viewMode = 'student'" :class="viewMode === 'student' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'" class="px-4 py-2 text-sm font-bold rounded-lg shadow-sm transition border">
-                        👨‍🎓 學生課表視角
-                    </button>
-                    <button @click="viewMode = 'teacher'" :class="viewMode === 'teacher' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'" class="px-4 py-2 text-sm font-bold rounded-lg shadow-sm transition border">
-                        👩‍🏫 老師時間表視角
-                    </button>
+            <!-- 排課視窗篩選面板（先選課程，後選班級） -->
+            <div class="bg-indigo-50/50 p-4 rounded-xl mb-4 flex items-center space-x-4 border border-indigo-100">
+                <div class="flex items-center space-x-2 flex-1">
+                    <span class="text-sm font-bold text-gray-700 shrink-0">1. 選擇課程：</span>
+                    <select v-model="viewProgram" class="border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-indigo-500 font-semibold text-gray-700 flex-1">
+                        <option v-for="prog in programs" :key="prog" :value="prog">{{ prog }}</option>
+                    </select>
                 </div>
 
-                <div class="flex items-center space-x-2">
-                    <span class="text-sm font-medium text-gray-600">當前檢視對象：</span>
-                    <select v-if="viewMode === 'student'" v-model="currentViewClass" class="border border-gray-300 rounded-lg p-1.5 text-sm bg-white focus:outline-indigo-500 font-semibold text-indigo-600">
-                        <option v-for="c in allClassOptions" :key="c" :value="c">{{ c }}</option>
-                    </select>
-                    <select v-if="viewMode === 'teacher'" v-model="currentViewTeacher" class="border border-gray-300 rounded-lg p-1.5 text-sm bg-white focus:outline-indigo-500 font-semibold text-indigo-600">
-                        <option v-for="t in allTeacherOptions" :key="t" :value="t">{{ t }}老師</option>
+                <div class="flex items-center space-x-2 flex-1">
+                    <span class="text-sm font-bold text-gray-700 shrink-0">2. 選擇班級：</span>
+                    <select v-model="viewClass" class="border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-indigo-500 font-bold text-indigo-700 flex-1">
+                        <option v-for="cls in availableClassesForView" :key="cls" :value="cls">{{ cls }} 班</option>
                     </select>
                 </div>
             </div>
 
+            <!-- 5 × 8 課表排課視窗本體 -->
             <div class="flex-1 overflow-auto">
-                <div class="grid grid-cols-6 gap-2 h-full min-h-[600px]">
+                <div class="grid grid-cols-6 gap-2 h-full min-h-[620px]">
                     
-                    <div class="bg-gray-100 p-3 text-center font-bold text-gray-700 rounded-lg flex items-center justify-center border text-sm">節數 / 時間</div>
-                    <div v-for="(dayName, dayIdx) in ['星期一', '星期二', '星期三', '星期四', '星期五']" :key="dayIdx" class="bg-indigo-50/50 p-3 text-center font-bold text-indigo-900 rounded-lg flex items-center justify-center border border-indigo-100 text-sm">
+                    <!-- 棋盤表頭 -->
+                    <div class="bg-gray-100 p-3 text-center font-bold text-gray-600 rounded-lg flex items-center justify-center border text-xs">節數 / 時間</div>
+                    <div v-for="(dayName, dayIdx) in ['星期一', '星期二', '星期三', '星期四', '星期五']" :key="dayIdx" class="bg-slate-100 p-3 text-center font-bold text-gray-700 rounded-lg flex items-center justify-center border text-xs">
                         {{ dayName }}
                     </div>
 
+                    <!-- 生成 8 節課的橫行 -->
                     <template v-for="slot in timeSlots" :key="slot.num">
+                        <!-- 時間列 -->
                         <div class="bg-gray-50 border p-2 flex flex-col justify-center items-center rounded-lg text-center shadow-sm">
                             <span class="font-bold text-gray-700 text-xs">第 {{ slot.num }} 節</span>
-                            <span class="text-[10px] text-gray-400 mt-1 font-mono bg-white px-1 py-0.5 rounded border">{{ slot.time }}</span>
+                            <span class="text-[10px] text-indigo-600 mt-1 font-mono bg-white px-1 py-0.5 rounded border">{{ slot.time }}</span>
                         </div>
 
+                        <!-- 5個星期的格子 (Drop Zones) -->
                         <div v-for="day in 5" 
                              :key="day" 
-                             class="border-2 border-dashed border-gray-200 rounded-xl p-1.5 bg-gray-50/50 hover:bg-indigo-50/40 hover:border-indigo-300 transition-all flex flex-col justify-center min-h-[75px]"
+                             class="border-2 border-dashed border-gray-200 rounded-xl p-1.5 bg-gray-50/30 hover:bg-indigo-50/50 hover:border-indigo-300 transition-all flex flex-col justify-center min-h-[75px]"
                              @dragover.prevent
                              @drop="onDrop($event, day, slot.num)">
                             
+                            <!-- 格子內已被排定的課程 -->
                             <div v-for="item in getCellBlocks(day, slot.num)" 
                                  :key="item.id" 
-                                 class="p-2 bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col justify-between relative group hover:border-red-300 transition-all">
+                                 class="p-2 bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col justify-between relative group hover:border-red-400 transition-all">
                                 
                                 <div>
                                     <div class="flex justify-between items-center mb-1">
-                                        <span class="text-[10px] font-bold px-1.5 py-0.2 bg-slate-100 text-slate-700 rounded">
-                                            {{ item.level }}-{{ item.className }}
+                                        <span class="text-[10px] font-bold px-1.5 py-0.2 bg-indigo-100 text-indigo-800 rounded">
+                                            {{ item.className }}班
                                         </span>
-                                        <span class="text-xs font-bold text-indigo-600">{{ item.teacher }}</span>
+                                        <span class="text-xs font-bold text-slate-700">{{ item.teacher }}</span>
                                     </div>
                                     <div class="font-bold text-gray-800 text-xs leading-tight">{{ item.subject }}</div>
                                 </div>
 
+                                <!-- 刪除按鈕 -->
                                 <button @click="removeSchedule(item)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center shadow hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
                                     ×
                                 </button>
@@ -137,17 +169,89 @@
 
                 </div>
             </div>
-            
+        </div>
+
+        <!-- ================= 第四點：批量生成拼圖塊的彈出視窗 (Modal) ================= -->
+        <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 border">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <h3 class="font-bold text-lg text-gray-800">➕ 批量自動生成課程拼圖</h3>
+                    <button @click="showModal = false" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
+                </div>
+
+                <div class="space-y-3 text-sm">
+                    <!-- 選擇課程 -->
+                    <div>
+                        <label class="block font-medium text-gray-700 mb-1">1. 選擇課程名稱</label>
+                        <select v-model="form.program" class="w-full border rounded-lg p-2 bg-gray-50">
+                            <option v-for="prog in programs" :key="prog" :value="prog">{{ prog }}</option>
+                        </select>
+                    </div>
+
+                    <!-- 輸入科目名 -->
+                    <div>
+                        <label class="block font-medium text-gray-700 mb-1">2. 輸入科目名稱</label>
+                        <input type="text" v-model="form.subject" placeholder="例如：微積分導論" class="w-full border rounded-lg p-2 bg-gray-50 focus:outline-indigo-500">
+                    </div>
+
+                    <!-- 輸入授課老師 -->
+                    <div>
+                        <label class="block font-medium text-gray-700 mb-1">3. 授課老師姓名</label>
+                        <input type="text" v-model="form.teacher" placeholder="例如：蘇正偉" class="w-full border rounded-lg p-2 bg-gray-50 focus:outline-indigo-500">
+                    </div>
+
+                    <!-- 班級範圍設定 -->
+                    <div>
+                        <label class="block font-medium text-gray-700 mb-1">4. 設定班級範圍 (請輸入大寫英文字母)</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="text" v-model="form.classStart" placeholder="A" class="w-20 border rounded-lg p-2 text-center bg-gray-50 font-bold uppercase">
+                            <span class="text-gray-400">至</span>
+                            <input type="text" v-model="form.classEnd" placeholder="C" class="w-20 border rounded-lg p-2 text-center bg-gray-50 font-bold uppercase">
+                            <span class="text-gray-600 font-medium">班</span>
+                        </div>
+                    </div>
+
+                    <!-- 每週上課節數 -->
+                    <div>
+                        <label class="block font-medium text-gray-700 mb-1">5. 每週上課節數 (每班)</label>
+                        <select v-model.number="form.lessonsPerWeek" class="w-full border rounded-lg p-2 bg-gray-50">
+                            <option :value="1">每週 1 節</option>
+                            <option :value="2">每週 2 節</option>
+                            <option :value="3">每週 3 節</option>
+                            <option :value="4">每週 4 節</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 實時預覽生成結果 -->
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+                    <p class="font-bold text-sm mb-1">📊 生成效果預覽：</p>
+                    <p v-if="isValidFormConfig">
+                        將為 <strong>{{ generatedClassesArray.join('、') }}班</strong> 生成課程，
+                        每個班級 {{ form.lessonsPerWeek }} 節，<strong>共將智能生成 {{ previewTotalBlocks }} 個拼圖卡片！</strong>
+                    </p>
+                    <p v-else class="text-gray-500">請填妥上方班級範圍與科目資料以獲取精確預覽。</p>
+                </div>
+
+                <!-- 按鈕操作 -->
+                <div class="flex space-x-3 pt-2">
+                    <button @click="showModal = false" class="flex-1 py-2 border rounded-lg text-gray-600 hover:bg-gray-100 font-medium transition">取消</button>
+                    <button @click="generateBlocks" :disabled="!isValidFormConfig" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold disabled:bg-gray-300 disabled:cursor-not-allowed transition">
+                        確認生成拼圖
+                    </button>
+                </div>
+            </div>
         </div>
 
     </div>
 
+    <!-- Vue 核心邏輯 -->
     <script>
         const { createApp, ref, computed, watch } = Vue;
 
         createApp({
             setup() {
-                // 1. 初始化 8 節課的時間段定義
+                // 1. 第三點修改：精準規定金融學院的 8 節課時間
                 const timeSlots = [
                     { num: 1, time: "09:00-10:15" },
                     { num: 2, time: "10:30-11:45" },
@@ -159,71 +263,124 @@
                     { num: 8, time: "20:30-21:45" }
                 ];
 
-                // 2. 初始化全學院所有班級與老師的基礎對應數據（274節課大模板例子，此處內置範例，可自行增刪）
-                const defaultUnassigned = [];
-                
-                // 模擬批量生成演示數據：大一到大四各 8-9 個班，每班2節會計/研究報告
-                const teachersPool = ["高靜如", "李迪", "王豔", "華君怡", "李宇鵬", "蘇正偉", "Markus"];
-                const subjectsPool = ["會計學", "研究報告一", "微積分導論", "微觀經濟學導論"];
-                const classesList = ["A班", "B班", "C班", "D班", "E班", "F班", "G班", "H班", "I班"];
-                const levelsList = ["本科-大一", "本科-大二", "本科-大三", "本科-大四", "碩士", "博士"];
+                // 2. 第二點修改：指定的四個特定課程
+                const programs = [
+                    "應用經濟學學士學位課程",
+                    "金融學碩士學位課程",
+                    "金融科技碩士學位課程",
+                    "金融學博士學位課程"
+                ];
 
-                // 這裡動態生成一些預填任務，方便你一打開就能玩拼圖，之後可由備份還原覆蓋
-                let idCounter = 1;
-                levelsList.forEach(lvl => {
-                    classesList.forEach(cls => {
-                        // 隨機分配一門科目和老師，每個班安排 2 節課 (2個Blocks)
-                        const randomTeacher = teachersPool[Math.floor(Math.random() * teachersPool.length)];
-                        const randomSubj = lvl.includes("大四") ? "研究報告一" : (lvl.includes("大一") ? "會計學" : "微積分導論");
-                        
-                        defaultUnassigned.push({ id: `T${idCounter++}`, level: lvl, className: cls, subject: randomSubj, teacher: randomTeacher });
-                        defaultUnassigned.push({ id: `T${idCounter++}`, level: lvl, className: cls, subject: randomSubj, teacher: randomTeacher });
-                    });
+                // 3. 狀態管理
+                const unassignedBlocks = ref(JSON.parse(localStorage.getItem('fa_unassignedBlocks')) || []);
+                const timetable = ref(JSON.parse(localStorage.getItem('fa_timetable')) || []);
+                
+                // 篩選左側待排課池狀態
+                const filterProgram = ref("");
+                const filterClass = ref("");
+
+                // 右側「排課視窗」篩選狀態 (預設看應經學士A班)
+                const viewProgram = ref("應用經濟學學士學位課程");
+                const viewClass = ref("A");
+
+                // 控制自定義批量生成視窗
+                const showModal = ref(false);
+                const form = ref({
+                    program: "應用經濟學學士學位課程",
+                    subject: "",
+                    teacher: "",
+                    classStart: "A",
+                    classEnd: "C",
+                    lessonsPerWeek: 2
                 });
 
-                // 3. 響應式狀態 (State)
-                const unassignedBlocks = ref(JSON.parse(localStorage.getItem('unassignedBlocks')) || defaultUnassigned);
-                const timetable = ref(JSON.parse(localStorage.getItem('timetable')) || []);
-                
-                const filterLevel = ref("");
-                const viewMode = ref("student"); // 視角模式：student（學生） 或 teacher（老師）
-                
-                const currentViewClass = ref("本科-大一-H班"); // 預設看大一H班
-                const currentViewTeacher = ref("高靜如");     // 預設看高靜如老師
+                // 4. 計算屬性：計算字母之間的班級清單 (例如 A 到 C -> ['A', 'B', 'C'])
+                const generatedClassesArray = computed(() => {
+                    const start = form.value.classStart.trim().toUpperCase();
+                    const end = form.value.classEnd.trim().toUpperCase();
+                    if (!start || !end) return [];
+                    
+                    const startCode = start.charCodeAt(0);
+                    const endCode = end.charCodeAt(0);
+                    if (startCode > endCode || startCode < 65 || endCode > 90) return [];
 
-                // 4. 下拉選單動態數據依據
-                const allClassOptions = computed(() => {
+                    const list = [];
+                    for (let i = startCode; i <= endCode; i++) {
+                        list.push(String.fromCharCode(i));
+                    }
+                    return list;
+                });
+
+                const previewTotalBlocks = computed(() => {
+                    return generatedClassesArray.value.length * form.value.lessonsPerWeek;
+                });
+
+                const isValidFormConfig = computed(() => {
+                    return form.value.subject.trim() && 
+                           form.value.teacher.trim() && 
+                           generatedClassesArray.value.length > 0;
+                });
+
+                // 5. 動態收集右側排課視窗及左側篩選框可用的班級清單
+                const availableClassesInPool = computed(() => {
                     const classes = new Set();
-                    // 合併未排和已排的所有班級組合
-                    [...unassignedBlocks.value, ...timetable.value.map(t => t.block)].forEach(b => {
-                        if (b) classes.add(`${b.level}-${b.className}`);
+                    unassignedBlocks.value.forEach(b => {
+                        if (!filterProgram.value || b.program === filterProgram.value) {
+                            classes.add(b.className);
+                        }
                     });
                     return Array.from(classes).sort();
                 });
 
-                const allTeacherOptions = computed(() => {
-                    const teachers = new Set();
-                    [...unassignedBlocks.value, ...timetable.value.map(t => t.block)].forEach(b => {
-                        if (b) teachers.add(b.teacher);
-                    });
-                    return Array.from(teachers).sort();
+                const availableClassesForView = computed(() => {
+                    // 為了方便排課，右側視窗提供 A 到 Z 的固定選項或動態已存在的班級
+                    return ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"];
                 });
 
-                // 5. 左側卡片過濾器
+                // 6. 左側拼圖塊篩選過濾
                 const filteredUnassignedBlocks = computed(() => {
-                    if (!filterLevel.value) return unassignedBlocks.value;
-                    return unassignedBlocks.value.filter(b => `${b.level}` === filterLevel.value);
+                    return unassignedBlocks.value.filter(b => {
+                        const matchProg = !filterProgram.value || b.program === filterProgram.value;
+                        const matchCls = !filterClass.value || b.className === filterClass.value;
+                        return matchProg && matchCls;
+                    });
                 });
 
-                // 6. 持久化本地保險箱儲存監聽
+                // 7. 監聽並寫入 LocalStorage 私人保險箱
                 watch([unassignedBlocks, timetable], () => {
-                    localStorage.setItem('unassignedBlocks', JSON.stringify(unassignedBlocks.value));
-                    localStorage.setItem('timetable', JSON.stringify(timetable.value));
+                    localStorage.setItem('fa_unassignedBlocks', JSON.stringify(unassignedBlocks.value));
+                    localStorage.setItem('fa_timetable', JSON.stringify(timetable.value));
                 }, { deep: true });
 
-                // 7. 拖拽核心事件
-                let draggedBlock = null;
+                // 8. 第四點：批量生成拼圖確認執行
+                function generateBlocks() {
+                    if (!isValidFormConfig.value) return;
+                    
+                    const classes = generatedClassesArray.value;
+                    const timestamp = Date.now();
+                    let count = 0;
 
+                    classes.forEach(cls => {
+                        for (let i = 0; i < form.value.lessonsPerWeek; i++) {
+                            unassignedBlocks.value.push({
+                                id: `B_${timestamp}_${count++}`,
+                                program: form.value.program,
+                                subject: form.value.subject.trim(),
+                                teacher: form.value.teacher.trim(),
+                                className: cls
+                            });
+                        }
+                    });
+
+                    alert(`✅ 成功為左側拼圖池生成了 ${count} 個全新拼圖塊！`);
+                    // 重設表單並關閉視窗
+                    form.value.subject = "";
+                    form.value.teacher = "";
+                    showModal.value = false;
+                }
+
+                // 9. 拖拽核心算法
+                let draggedBlock = null;
                 function onDragStart(event, block) {
                     draggedBlock = block;
                 }
@@ -231,73 +388,125 @@
                 function onDrop(event, day, slot) {
                     if (!draggedBlock) return;
 
-                    // 【核心大腦：實時多維衝突與上限檢查】
-                    
-                    // 檢查1：該班級在此時間是否已有課（防止學生重疊）
+                    // 行政多維防撞大腦
+                    // 檢查1：該課程在該班級此時間是否已有課（學生防撞）
                     const classConflict = timetable.value.find(item => 
                         item.day === day && 
                         item.slot === slot && 
-                        item.block.level === draggedBlock.level && 
+                        item.block.program === draggedBlock.program && 
                         item.block.className === draggedBlock.className
                     );
                     if (classConflict) {
-                        alert(`❌【班級時間衝突！】\n${draggedBlock.level}${draggedBlock.className} 在該時段已經安排了「${classConflict.block.subject}」`);
+                        alert(`❌【班級課表衝突！】\n${draggedBlock.program} - ${draggedBlock.className}班 該時段已有「${classConflict.block.subject}」！`);
                         return;
                     }
 
-                    // 檢查2：任課老師在此時間是否已在別的班授課（防止老師分身衝突）
+                    // 檢查2：老師防分身衝突
                     const teacherConflict = timetable.value.find(item => 
                         item.day === day && 
                         item.slot === slot && 
                         item.block.teacher === draggedBlock.teacher
                     );
                     if (teacherConflict) {
-                        alert(`❌【老師時間衝突！】\n${draggedBlock.teacher}老師在該時段已在「${teacherConflict.block.level}${teacherConflict.block.className}」授課，無法同時上堂！`);
+                        alert(`❌【教師時間撞堂！】\n${draggedBlock.teacher}老師該時段已在「${teacherConflict.block.program}-${teacherConflict.block.className}班」上堂！`);
                         return;
                     }
 
-                    // 檢查3：每位老師一日內不可以教多於 4 節課
+                    // 檢查3：每位老師一日不超過 4 節課
                     const teacherTodayLessons = timetable.value.filter(item => 
                         item.day === day && 
                         item.block.teacher === draggedBlock.teacher
                     ).length;
                     if (teacherTodayLessons >= 4) {
-                        alert(`⚠️【老師日授課量超標！】\n${draggedBlock.teacher}老師在當天已安排了 ${teacherTodayLessons} 節課，不可以超過 4 節上限！`);
+                        alert(`⚠️【超授課上限！】\n${draggedBlock.teacher}老師在該工作日已排了 4 節課，達到一日最大上限！`);
                         return;
                     }
 
-                    // 通過所有行政審查，將卡片從左邊移到右邊棋盤
+                    // 審查通過，正式移入
                     timetable.value.push({ day, slot, block: draggedBlock });
                     unassignedBlocks.value = unassignedBlocks.value.filter(b => b.id !== draggedBlock.id);
                     draggedBlock = null;
                 }
 
-                // 8. 獲取當前網頁棋盤格子要顯示的課程卡片（實時雙向過濾同步核心）
+                // 10. 第五點修改：獲取特定課程、特定班級對應在棋盤上的拼圖卡片
                 function getCellBlocks(day, slot) {
-                    return timetable.value.filter(item => {
-                        if (item.day !== day || item.slot !== slot) return false;
-                        
-                        if (viewMode.value === 'student') {
-                            // 學生視角：只顯示屬於目前所選班級的課
-                            return `${item.block.level}-${item.block.className}` === currentViewClass.value;
-                        } else {
-                            // 老師視角：只顯示屬於目前所選老師的課
-                            return item.block.teacher === currentViewTeacher.value;
-                        }
-                    }).map(item => ({
+                    return timetable.value.filter(item => 
+                        item.day === day && 
+                        item.slot === slot && 
+                        item.block.program === viewProgram.value && 
+                        item.block.className === viewClass.value
+                    ).map(item => ({
                         ...item.block,
-                        originItem: item // 保留原始引用方便回收刪除
+                        originItem: item
                     }));
                 }
 
-                // 9. 回收拼圖卡片（點擊×按鈕將課程放回左側池）
+                // 移除排課放回左邊池
                 function removeSchedule(blockWithOrigin) {
                     const originalItem = blockWithOrigin.originItem;
                     timetable.value = timetable.value.filter(item => item !== originalItem);
                     unassignedBlocks.value.push(originalItem.block);
                 }
 
-                // 10. 行政輔助功能：下載 JSON 備份檔案
+                // 11. 第六點修改：一鍵導出為適合領導查閱的漂亮大 Excel 課表
+                function exportToExcel() {
+                    if (timetable.value.length === 0) {
+                        alert("當前未排定任何課程，無法導出空表格。");
+                        return;
+                    }
+
+                    // 初始化導出的數據陣列，第一行是橫向表頭
+                    const headers = ["課程名稱", "班級", "節數/時間", "星期一", "星期二", "星期三", "星期四", "星期五"];
+                    const rows = [];
+
+                    // 按課程和班級分組整理數據
+                    const progClassMap = {};
+                    timetable.value.forEach(item => {
+                        const key = `${item.block.program}##${item.block.className}`;
+                        if (!progClassMap[key]) progClassMap[key] = [];
+                        progClassMap[key].push(item);
+                    });
+
+                    // 循環每個有課的班級，幫他們生成 1 到 8 節的完整對照表
+                    Object.keys(progClassMap).sort().forEach(key => {
+                        const [prog, cls] = key.split("##");
+                        const items = progClassMap[key];
+
+                        timeSlots.forEach(slot => {
+                            const rowData = {
+                                "課程名稱": prog,
+                                "班級": `${cls}班`,
+                                "節數/時間": `第${slot.num}節 (${slot.time})`
+                            };
+
+                            // 填充星期一到星期五的格子
+                            for (let d = 1; d <= 5; d++) {
+                                const found = items.find(i => i.day === d && i.slot === slot.num);
+                                const dayKey = ["星期一", "星期二", "星期三", "星期四", "星期五"][d - 1];
+                                rowData[dayKey] = found ? `${found.block.subject}\n(老師: ${found.block.teacher})` : "";
+                            }
+                            rows.push(rowData);
+                        });
+                        // 班級之間加一個空行方便引導閱讀
+                        rows.push({});
+                    });
+
+                    // 轉化為 Excel 運作對象
+                    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "金融學院總課表");
+
+                    // 智能調整 Excel 欄寬度
+                    worksheet["!cols"] = [
+                        { wch: 25 }, { wch: 8 }, { wch: 18 },
+                        { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }
+                    ];
+
+                    // 導出下載
+                    XLSX.writeFile(workbook, `金融学院排课总表_${new Date().toLocaleDateString()}.xlsx`);
+                }
+
+                // 12. 備份功能組
                 function exportData() {
                     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
                         unassignedBlocks: unassignedBlocks.value,
@@ -305,13 +514,12 @@
                     }));
                     const downloadAnchor = document.createElement('a');
                     downloadAnchor.setAttribute("href", dataStr);
-                    downloadAnchor.setAttribute("download", `学院课表备份_${new Date().toLocaleDateString()}.json`);
+                    downloadAnchor.setAttribute("download", `金融学院排课系统备份_${new Date().toLocaleDateString()}.json`);
                     document.body.appendChild(downloadAnchor);
                     downloadAnchor.click();
                     downloadAnchor.remove();
                 }
 
-                // 11. 行政輔助功能：還原上傳備份檔案
                 function importData(event) {
                     const file = event.target.files[0];
                     if (!file) return;
@@ -322,43 +530,27 @@
                             if (parsed.unassignedBlocks && parsed.timetable) {
                                 unassignedBlocks.value = parsed.unassignedBlocks;
                                 timetable.value = parsed.timetable;
-                                alert("✅ 課表數據已完美還原歸位！");
-                            } else {
-                                alert("格式錯誤，這不是合法的排課系統備份檔。");
+                                alert("✅ 數據備份成功還原！");
                             }
-                        } catch (err) {
-                            alert("讀取檔案失敗，請確保上傳的是正確的 JSON 檔案。");
-                        }
+                        } catch (err) { alert("無效的備份文件。"); }
                     };
                     reader.readAsText(file);
                 }
 
-                // 12. 清空重設
                 function clearAllSchedules() {
-                    if (confirm("🚨 警告：確定要清空右邊所有已排好的課表，將它們全部打回左邊的拼圖池嗎？")) {
-                        unassignedBlocks.value = [...unassignedBlocks.value, ...timetable.value.map(t => t.block)];
+                    if (confirm("⚠️ 確定要清空已排定的所有格子並重新開始嗎？")) {
+                        unassignedBlocks.value = [];
                         timetable.value = [];
                     }
                 }
 
                 return {
-                    timeSlots,
-                    unassignedBlocks,
-                    timetable,
-                    filterLevel,
-                    viewMode,
-                    currentViewClass,
-                    currentViewTeacher,
-                    allClassOptions,
-                    allTeacherOptions,
-                    filteredUnassignedBlocks,
-                    onDragStart,
-                    onDrop,
-                    getCellBlocks,
-                    removeSchedule,
-                    exportData,
-                    importData,
-                    clearAllSchedules
+                    timeSlots, programs, unassignedBlocks, timetable,
+                    filterProgram, filterClass, viewProgram, viewClass,
+                    showModal, form, generatedClassesArray, previewTotalBlocks, isValidFormConfig,
+                    availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
+                    onDragStart, onDrop, getCellBlocks, removeSchedule, generateBlocks,
+                    exportToExcel, exportData, importData, clearAllSchedules
                 };
             }
         }).mount('#app');
