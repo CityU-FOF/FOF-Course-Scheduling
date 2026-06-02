@@ -272,7 +272,7 @@
                     <template v-for="slot in timeSlots" :key="slot.num">
                         <div class="bg-gray-50 border p-2 flex flex-col justify-center items-center rounded-lg text-center shadow-sm">
                             <span class="font-extrabold text-gray-700 text-sm">第 {{ slot.num }} 節</span>
-                            <span class="text-[10px] text-indigo-600 mt-1 font-mono bg-white px-1 py-0.5 rounded border">{{ slot.time }}</span>
+                            <span class="text-tx font-bold text-indigo-600 mt-1 font-mono bg-white px-1 py-0.5 rounded border">{{ slot.time }}</span>
                         </div>
 
                         <div v-for="day in 5" :key="day" class="border border-dashed border-gray-300 rounded-xl p-1 bg-gray-50/20 hover:bg-indigo-50/40 transition-all flex flex-col justify-start min-h-[95px]" @dragover.prevent @drop="currentTab === 'class' ? onDrop($event, day, slot.num) : null">
@@ -765,29 +765,115 @@
                     }
                 }
                 // 導出 Excel
+// 重構：按課程年級分多個分頁，採用清單明細格式並智能合並同課時間
                 function exportToExcel() {
                     if (timetable.value.length === 0) { alert("當前未排定任何課程。"); return; }
-                    const headers = ["學位課程代碼", "學位課程", "年級班級", "節數/時間", "星期一", "星期二", "星期三", "星期四", "星期五"];
-                    const rows = []; const groupMap = {};
+
+                    // 1. 定義星期映射
+                    const dayNames = ["", "星期一", "星期二", "星期三", "星期四", "星期五"];
+
+                    // 2. 按「課程代碼+年級」將數據進行分組（決定 Excel 的不同分頁）
+                    const sheetsMap = {};
+
                     timetable.value.forEach(item => {
-                        const key = `${item.block.program}##${item.block.grade}${item.block.className}班`;
-                        if (!groupMap[key]) groupMap[key] = []; groupMap[key].push(item);
+                        const progCode = getProgramCode(item.block.program);
+                        const grade = item.block.grade || "";
+                        // 分頁名稱例子：BAECF大一、BAECF大四
+                        const sheetName = `${progCode}${grade}`.substring(0, 31); // Excel分頁名上限31字
+
+                        if (!sheetsMap[sheetName]) {
+                            sheetsMap[sheetName] = [];
+                        }
+                        sheetsMap[sheetName].push(item);
                     });
-                    Object.keys(groupMap).sort().forEach(key => {
-                        const [prog, clsInfo] = key.split("##"); const items = groupMap[key];
-                        timeSlots.forEach(slot => {
-                            const rowData = { "學位課程代碼": getProgramCode(prog), "學位課程": prog, "年級班級": clsInfo, "節數/時間": `第${slot.num}節 (${slot.time})` };
-                            for (let d = 1; d <= 5; d++) {
-                                const found = items.find(i => i.day === d && i.slot === slot.num);
-                                const dayKey = ["星期一", "星期二", "星期三", "星期四", "星期五"][d - 1];
-                                rowData[dayKey] = found ? `${found.block.subject} (${found.block.teacher})` : "";
+
+                    // 3. 創建一個全新的 Excel 工作簿
+                    const workbook = XLSX.utils.book_new();
+
+                    // 4. 遍歷每個分頁分組，將其中的課程進行「同課同班合並時間」處理
+                    Object.keys(sheetsMap).sort().forEach(sheetName => {
+                        const rawItems = sheetsMap[sheetName];
+                        
+                        // 用於合並同課程、同班級、同老師的排課時間
+                        // 鍵值格式：科目編號##科目名稱##班級##老師
+                        const uniqueCourseMap = {};
+
+                        rawItems.forEach(item => {
+                            const subCode = item.block.subjectCode || "N/A";
+                            const subName = item.block.subject || "N/A";
+                            const clsName = `${item.block.grade ? item.block.grade.replace('大','').replace('研','').replace('博','') : ''}${item.block.className}`; // 轉換成例如 1A, 4I
+                            const teacher = item.block.teacher || "N/A";
+                            
+                            const key = `${subCode}##${subName}##${clsName}##${teacher}`;
+
+                            // 獲取當前節數的時間段字符串
+                            const slotObj = timeSlots.find(s => s.num === item.slot);
+                            const timeStr = slotObj ? slotObj.time : `第${item.slot}節`;
+
+                            if (!uniqueCourseMap[key]) {
+                                uniqueCourseMap[key] = {
+                                    subjectCode: subCode,
+                                    subjectName: subName,
+                                    className: clsName,
+                                    teacher: teacher,
+                                    timeSlotsByDay: {} // 結構： { '星期一': ['09:00-10:15'], '星期三': ['09:00-10:15', '10:30-11:45'] }
+                                };
                             }
-                            rows.push(rowData);
-                        }); rows.push({});
+
+                            const dayName = dayNames[item.day] || `星期${item.day}`;
+                            if (!uniqueCourseMap[key].timeSlotsByDay[dayName]) {
+                                uniqueCourseMap[key].timeSlotsByDay[dayName] = [];
+                            }
+                            // 記錄該上課日的時段
+                            if (!uniqueCourseMap[key].timeSlotsByDay[dayName].includes(timeStr)) {
+                                uniqueCourseMap[key].timeSlotsByDay[dayName].push(timeStr);
+                            }
+                        });
+
+                        // 5. 將合並好時間的對象轉換為 Excel 行數據格式
+                        const finalRows = Object.values(uniqueCourseMap).map(course => {
+                            
+                            // 將時間組合起來，例如： 星期一、星期三 09:00-10:15
+                            // 或者多個不同時段： 星期三 09:00-10:15; 10:30-11:45
+                            let formattedDay = "";
+                            let formattedTime = "";
+
+                            const days = Object.keys(course.timeSlotsByDay);
+                            
+                            // 檢查是否所有日子的上課時段都完全一樣（方便縮寫合並，例如：星期一、星期三 09:00-10:15）
+                            const firstDayTimes = course.timeSlotsByDay[days[0]].sort().join("; ");
+                            const isAllDaysSameTime = days.every(d => course.timeSlotsByDay[d].sort().join("; ") === firstDayTimes);
+
+                            if (isAllDaysSameTime) {
+                                formattedDay = days.join('、');
+                                formattedTime = firstDayTimes;
+                            } else {
+                                // 如果每天上課時段不一致，則分行或用分號詳細列出
+                                const details = days.map(d => `${d} ${course.timeSlotsByDay[d].sort().join('; ')}`);
+                                formattedDay = days.join('、');
+                                formattedTime = details.join(' | ');
+                            }
+
+                            return {
+                                "科目編號": course.subjectCode,
+                                "科目名稱": course.subjectName,
+                                "班級": course.className,
+                                "上課日": formattedDay,
+                                "上課時段": formattedTime,
+                                "授課老師": course.teacher
+                            };
+                        });
+
+                        // 6. 定義標準 A 到 F 欄位表頭
+                        const headers = ["科目編號", "科目名稱", "班級", "上課日", "上課時段", "授課老師"];
+
+                        // 7. 生成當前分頁的工作表並追加到工作簿
+                        const worksheet = XLSX.utils.json_to_sheet(finalRows, { header: headers });
+                        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
                     });
-                    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
-                    const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, worksheet, "學院總課表數據");
-                    XLSX.writeFile(workbook, `金融学院排课总表.xlsx`);
+
+                    // 8. 導出並下載 Excel 檔案
+                    XLSX.writeFile(workbook, `金融學院學期課表總匯.xlsx`);
                 }
 
                 function exportData() {
