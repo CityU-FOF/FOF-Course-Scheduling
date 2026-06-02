@@ -706,4 +706,74 @@
                     });
 
                     Object.keys(groupMap).sort().forEach(key => {
-                        const [prog, clsInfo]
+                        const [prog, clsInfo] = key.split("##");
+                        const items = groupMap[key];
+
+                        timeSlots.forEach(slot => {
+                            const rowData = { 
+                                "學位課程代碼": programCodes[prog] || "N/A",
+                                "學位課程": prog, 
+                                "年級班級": clsInfo, 
+                                "節數/時間": `第${slot.num}節 (${slot.time})` 
+                            };
+                            for (let d = 1; d <= 5; d++) {
+                                const found = items.find(i => i.day === d && i.slot === slot.num);
+                                const dayKey = ["星期一", "星期二", "星期三", "星期四", "星期五"][d - 1];
+                                rowData[dayKey] = found ? `${found.block.subject} (${found.block.teacher})` : "";
+                            }
+                            rows.push(rowData);
+                        });
+                        rows.push({});
+                    });
+
+                    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "學院總課表數據");
+
+                    worksheet["!cols"] = [
+                        { wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 18 },
+                        { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }
+                    ];
+                    XLSX.writeFile(workbook, `金融学院排课总表_${new Date().toLocaleDateString()}.xlsx`);
+                }
+
+                function exportData() {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ unassignedBlocks: unassignedBlocks.value, timetable: timetable.value }));
+                    const downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute("href", dataStr);
+                    downloadAnchor.setAttribute("download", `金融学院排课数据备份_${new Date().toLocaleDateString()}.json`);
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                }
+
+                function importData(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const parsed = JSON.parse(e.target.result);
+                            if (parsed.unassignedBlocks && parsed.timetable) { unassignedBlocks.value = parsed.unassignedBlocks; timetable.value = parsed.timetable; alert("✅ 數據備份成功還原！"); }
+                        } catch (err) { alert("無效的備份文件。"); }
+                    };
+                    reader.readAsText(file);
+                }
+
+                function clearAllSchedules() {
+                    if (confirm("⚠️ 確定要清空已排定的所有格子並重新開始嗎？")) { unassignedBlocks.value = []; timetable.value = []; }
+                }
+
+                return {
+                    timeSlots, programs, programCodes, grades, unassignedBlocks, timetable,
+                    filterProgram, filterGrade, filterClass, viewMode, viewProgram, viewGrade, viewClass, viewTeacher, allTeachersInSystem, teacherHoursReport, hasIncompleteTeachers,
+                    showModal, formCommon, formRows, totalPreviewCount, validRowsCount, getMorandiColor,
+                    availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
+                    openModal, addFormRow, removeFormRow, applySmartInsurance, onDragStartFromPool, onDragStartFromGrid, onDrop, 
+                    getCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
