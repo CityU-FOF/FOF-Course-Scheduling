@@ -12,11 +12,13 @@
 
     <div id="app" class="flex h-screen overflow-hidden p-4">
         
-        <!-- 左側邊欄：待排課池 -->
-      <div class="w-80 bg-white p-4 rounded-xl shadow-lg mr-4 flex flex-col border border-gray-200 overflow-hidden">
+        <div class="w-80 bg-white p-4 rounded-xl shadow-lg mr-4 flex flex-col border border-gray-200 overflow-hidden">
             
-            <div class="mb-4 pb-2 border-b border-gray-100">
-                <img src="金融學院logo.jpg" alt="Faculty of Finance" class="w-full h-auto object-contain max-h-16">
+            <div class="mb-4 pb-2 border-b border-gray-100 flex items-center justify-center bg-gray-50 rounded-lg p-2 min-h-[64px]">
+                <img src="金融學院logo.jpg" alt="Faculty of Finance" class="w-full h-auto object-contain max-h-12" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <div class="hidden text-center font-serif font-bold text-sm text-[#004D2C] tracking-wide">
+                    澳門城市大學 <br><span class="text-[#8A704C] text-xs">金融學院 Faculty of Finance</span>
+                </div>
             </div>
 
             <div class="mb-4 pb-4 border-b border-gray-200">
@@ -29,7 +31,7 @@
                 <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">篩選待排課池</h4>
                 <div>
                     <label class="text-xs text-gray-500">選擇課程：</label>
-                    <select v-model="filterProgram" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white focus:outline-indigo-500 mt-1">
+                    <select v-model="filterProgram" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white focus:outline-[#004D2C] mt-1">
                         <option value="">所有課程</option>
                         <option v-for="prog in programs" :key="prog" :value="prog">{{ prog }}</option>
                     </select>
@@ -37,14 +39,14 @@
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="text-xs text-gray-500">選擇年級：</label>
-                        <select v-model="filterGrade" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white focus:outline-indigo-500 mt-1">
+                        <select v-model="filterGrade" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white focus:outline-[#004D2C] mt-1">
                             <option value="">所有年級</option>
                             <option v-for="g in grades" :key="g" :value="g">{{ g }}</option>
                         </select>
                     </div>
                     <div>
                         <label class="text-xs text-gray-500">選擇班級：</label>
-                        <select v-model="filterClass" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white focus:outline-indigo-500 mt-1">
+                        <select v-model="filterClass" class="w-full border border-gray-300 rounded p-1.5 text-xs bg-white focus:outline-[#004D2C] mt-1">
                             <option value="">所有班級</option>
                             <option v-for="cls in availableClassesInPool" :key="cls" :value="cls">{{ cls }}班</option>
                         </select>
@@ -55,18 +57,16 @@
             <div class="flex-1 overflow-hidden flex flex-col">
                 <h3 class="font-bold text-sm text-gray-700 mb-2 flex items-center justify-between">
                     <span>待排課拼圖塊清單</span>
-                    <span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full">{{ filteredUnassignedBlocks.length }} 塊</span>
+                    <span class="bg-emerald-100 text-[#004D2C] text-xs px-2 py-0.5 rounded-full font-bold">{{ filteredUnassignedBlocks.length }} 塊</span>
                 </h3>
                 
-                    <div class="flex-1 overflow-y-auto space-y-2 pr-1" @dragover.prevent>
+                <div class="flex-1 overflow-y-auto space-y-2 pr-1" @dragover.prevent>
                     <div v-for="block in filteredUnassignedBlocks" 
                          :key="block.id" 
                          draggable="true"
                          @dragstart="onDragStartFromPool($event, block)"
-                         :class="['p-3 rounded-lg shadow-sm cursor-grab hover:shadow transition relative flex flex-col justify-between min-h-[95px] group border', getColorClass(block.program).bg, getColorClass(block.program).border]">
+                         :class="['p-3 rounded-lg shadow-sm cursor-grab hover:shadow transition relative flex flex-col justify-between min-h-[95px]', getColorClass(block.program).bg, getColorClass(block.program).border]">
                         
-                        <button @click.stop="deletePoolBlock(block)" class="absolute -top-1.5 -right-1.5 bg-gray-500 hover:bg-red-600 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity z-10 font-bold" title="刪除此拼圖塊">×</button>
-
                         <div>
                             <div class="flex justify-between items-start mb-1">
                                 <span :class="['text-[10px] font-bold px-1.5 py-0.5 rounded border font-mono', getColorClass(block.program).tagBg, getColorClass(block.program).tagBorder, getColorClass(block.program).tagText]">
@@ -93,17 +93,19 @@
             </div>
         </div>
 
-        <!-- 右側：主工作區 -->
         <div class="flex-1 bg-white p-5 rounded-xl shadow-lg flex flex-col border border-gray-200 overflow-hidden">
             
             <div class="flex justify-between items-center mb-4 pb-4 border-b border-gray-100">
                 <div>
-                    <h1 class="font-bold text-2xl text-gray-800">金融學院排課系統</h1>
-                    
+                    <h1 class="font-bold text-2xl text-gray-800 flex items-center">
+                        <span class="w-3 h-6 bg-[#004D2C] rounded mr-2 inline-block"></span>
+                        金融學院排課系統
+                    </h1>
+                    <p class="text-xs text-gray-500 mt-1">排課視窗：支援班級與教師聯動追蹤，及全院課時自動核算明細</p>
                 </div>
                 
                 <div class="flex items-center space-x-2">
-                    <button @click="exportToExcel" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow transition">
+                    <button @click="exportToExcel" class="px-4 py-2 bg-[#004D2C] hover:bg-[#8A704C] text-white text-xs font-semibold rounded-lg shadow transition">
                         導出 EXCEL
                     </button>
                     <button @click="exportData" class="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition">
@@ -119,9 +121,8 @@
                 </div>
             </div>
 
-            <!-- 視窗切換 TAB 按鈕 -->
-                 <div class="flex border-b border-gray-200 mb-4 shrink-0">
-                <button @click="currentTab = 'class'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'class' ? 'border-[#004D2C] text-[#004D2C] bg-emerald-50/40 rounded-t-lg shadow-inner' : 'border-transparent text-gray-500 hover:text-[#004D2C]']">
+            <div class="flex border-b border-gray-200 mb-4 shrink-0">
+                <button @click="currentTab = 'class'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'class' ? 'border-[#004D2C] text-[#004D2C] bg-emerald-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-[#004D2C]']">
                     📅 按班級時間表檢視
                 </button>
                 <button @click="currentTab = 'teacher'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'teacher' ? 'border-[#004D2C] text-[#004D2C] bg-emerald-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-[#004D2C]']">
@@ -135,30 +136,29 @@
                 </button>
             </div>
 
-            <!-- TAB 1：班級課表檢視下的篩選欄 -->
-            <div v-if="currentTab === 'class'" class="bg-indigo-50/50 p-4 rounded-xl mb-4 space-y-3 border border-indigo-100 shrink-0">
+            <div v-if="currentTab === 'class'" class="bg-emerald-50/30 p-4 rounded-xl mb-4 space-y-3 border border-emerald-100 shrink-0">
                 <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2 flex-1">
                         <span class="text-sm font-semibold text-gray-700 shrink-0">1. 選擇檢視課程：</span>
-                        <select v-model="viewProgram" class="border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-indigo-500 font-medium text-gray-700 flex-1">
+                        <select v-model="viewProgram" class="border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-[#004D2C] font-medium text-gray-700 flex-1">
                             <option v-for="prog in programs" :key="prog" :value="prog">{{ prog }}</option>
                         </select>
                     </div>
                     <div class="flex items-center space-x-2 w-44">
                         <span class="text-sm font-semibold text-gray-700 shrink-0">2. 年級：</span>
-                        <select v-model="viewGrade" class="border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-indigo-500 font-medium text-gray-700 w-full">
+                        <select v-model="viewGrade" class="border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-[#004D2C] font-medium text-gray-700 w-full">
                             <option v-for="g in grades" :key="g" :value="g">{{ g }}</option>
                         </select>
                     </div>
                     <div class="flex items-center space-x-2 w-44">
                         <span class="text-sm font-semibold text-gray-700 shrink-0">3. 班級：</span>
-                        <select v-model="viewClass" class="border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-indigo-500 font-bold text-indigo-700 w-full">
+                        <select v-model="viewClass" class="border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-[#004D2C] font-bold text-[#004D2C] w-full">
                             <option v-for="cls in availableClassesForView" :key="cls" :value="cls">{{ cls }} 班</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="pt-2 border-t border-indigo-100/70 flex items-center justify-between bg-amber-50/60 p-2 rounded-lg">
+                <div class="pt-2 border-t border-emerald-100 flex items-center justify-between bg-amber-50/60 p-2 rounded-lg">
                     <div class="flex items-center space-x-2 flex-1">
                         <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-1 rounded">💡 教師時間表快速追蹤</span>
                         <select v-model="searchTeacher" class="border border-amber-300 rounded-lg p-1.5 text-xs bg-white focus:outline-amber-500 font-semibold text-amber-900 w-64">
@@ -173,7 +173,6 @@
                 </div>
             </div>
 
-            <!-- TAB 2：老師課表檢視下的篩選欄 -->
             <div v-if="currentTab === 'teacher'" class="bg-amber-50/50 p-4 rounded-xl mb-4 border border-amber-200 shrink-0 flex items-center justify-between">
                 <div class="flex items-center space-x-3 flex-1">
                     <span class="text-sm font-bold text-amber-800 bg-amber-100 px-3 py-1.5 rounded-lg">👨‍🏫 選擇查看教師：</span>
@@ -182,75 +181,80 @@
                         <option v-for="t in allTeachersList" :key="t" :value="t">{{ t }} 老師</option>
                     </select>
                     <span v-if="searchTeacher" class="text-sm text-amber-900 font-semibold ml-2">
-                        本學期該教師總課時累計：<span class="text-indigo-600 font-extrabold text-base underline">{{ getTeacherLessonCount(searchTeacher) }}</span> 節
+                        本學期該教師總課時累計：<span class="text-[#004D2C] font-extrabold text-base underline">{{ getTeacherLessonCount(searchTeacher) }}</span> 節
                     </span>
                 </div>
                 <p class="text-xs text-amber-700/80 max-w-sm text-right">此視窗為純課表檢視模式，可總覽該教師在各個課程、年級和班級的所有排堂。</p>
             </div>
-            <div v-if="currentTab === 'slot'" class="bg-purple-50/50 p-4 rounded-xl mb-4 border border-purple-200 shrink-0 flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <span class="text-sm font-bold text-purple-800 bg-purple-100 px-3 py-1.5 rounded-lg">📊 全院時段課量監控</span>
-                    <span class="text-sm text-purple-900 font-medium">
-                        目前全院已排定總課量：<span class="text-indigo-600 font-extrabold text-base underline">{{ timetable.length }}</span> 節
-                    </span>
+
+            <div v-if="currentTab === 'slot'" class="bg-emerald-50/20 rounded-xl p-4 mb-4 border border-emerald-100 shrink-0 flex justify-between items-center shadow-sm">
+                <div>
+                    <h3 class="font-bold text-base text-gray-800 flex items-center">
+                        <span class="w-2.5 h-2.5 rounded-full bg-[#004D2C] mr-2"></span>
+                        📊 全院時段課量監控
+                    </h3>
+                    <p class="text-xs text-gray-500 mt-0.5">即時統計全院各節次排課分佈密度，紅色代表該時段安排了高於全院總課量 3% 的飽和課程。</p>
                 </div>
-                <p class="text-xs text-purple-700/80 max-w-sm text-right">此視窗顯示全學院各個時段的「排課飽和度」，格子中會顯示該時段排了多少節課與具體明細。</p>
+                <div class="bg-[#004D2C] px-4 py-2 rounded-xl text-right text-white shadow-sm">
+                    <span class="text-[11px] block opacity-80">目前全院已排定總課量</span>
+                    <span class="font-mono font-extrabold text-xl">{{ timetable.length }} 節</span>
+                </div>
             </div>
 
-            <!-- 大棋盤主體區 -->
             <div class="flex-1 overflow-auto">
                 
-                <div v-if="currentTab === 'stats'" class="bg-white rounded-xl border border-gray-200 p-2 space-y-4">
-                    <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 rounded-xl text-white flex justify-between items-center shadow-sm">
+                <div v-if="currentTab === 'stats'" class="bg-white rounded-xl border border-gray-200 p-1 space-y-4">
+                    <div class="bg-gradient-to-r from-[#004D2C] to-[#1E6B48] p-4 rounded-xl text-white flex justify-between items-center shadow-sm">
                         <div>
-                            <h3 class="font-bold text-base">👨‍🏫 全院教師教學時數核算明細</h3>
-                            
+                            <h3 class="font-bold text-base flex items-center">
+                                <span class="mr-2">👨‍🏫</span> 全院教師教學時數核算明細
+                            </h3>
                         </div>
-                        <div class="bg-white/10 px-3 py-1.5 rounded-lg text-right">
+                        <div class="bg-white/10 px-3 py-1.5 rounded-lg text-right border border-white/10">
                             <span class="text-xs block opacity-80">全院總計師資</span>
                             <span class="font-extrabold text-lg">{{ teacherStatsList.length }} 位</span>
                         </div>
                     </div>
 
-                    <div class="border rounded-xl overflow-hidden shadow-sm">
+                    <div class="border rounded-xl overflow-hidden shadow-sm bg-white">
                         <table class="w-full text-left border-collapse text-sm">
                             <thead>
                                 <tr class="bg-slate-50 border-b border-gray-200 text-gray-600 font-semibold">
-                                    <th class="p-3 pl-5 w-32">教師姓名</th>
+                                    <th class="p-3 pl-5 w-36">教師姓名</th>
                                     <th class="p-3">任教班級與科目明細</th>
                                     <th class="p-3 w-48 text-center">排課進度條</th>
-                                    <th class="p-3 pr-5 w-48 text-right">已排學時 / 總學時 </th>
+                                    <th class="p-3 pr-5 w-48 text-right">已排學時 / 總學時</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr v-for="teacher in teacherStatsList" :key="teacher.name" class="border-b hover:bg-slate-50/50 transition-colors">
-                                    <td class="p-3 pl-5 font-bold text-gray-800 flex items-center">
-                                        <span class="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>
+                                    <td class="p-3 pl-5 font-bold text-gray-800">
+                                        <span class="inline-block w-2 h-2 rounded-full bg-[#004D2C] mr-2"></span>
                                         {{ teacher.name }} 老師
                                     </td>
                                     <td class="p-3">
                                         <div class="flex flex-wrap gap-1.5">
                                             <span v-for="cls in teacher.classes" :key="cls" 
-                                                  class="text-xs px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-gray-700 font-medium">
-                                                [{{ cls }}]
+                                                  class="text-xs px-2 py-0.5 rounded bg-emerald-50/60 border border-emerald-100 text-emerald-900 font-medium">
+                                                {{ cls }}
                                             </span>
                                         </div>
                                     </td>
                                     <td class="p-3">
                                         <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden border">
                                             <div class="h-full transition-all duration-500" 
-                                                 :class="teacher.numerator === teacher.denominator ? 'bg-emerald-500' : 'bg-indigo-600'"
+                                                 :class="teacher.numerator === teacher.denominator ? 'bg-emerald-500' : 'bg-[#004D2C]'"
                                                  :style="{ width: (teacher.denominator > 0 ? (teacher.numerator / teacher.denominator * 100) : 0) + '%' }">
                                             </div>
                                         </div>
                                     </td>
                                     <td class="p-3 pr-5 text-right font-mono font-bold">
-                                        <span :class="teacher.numerator === teacher.denominator ? 'text-emerald-600' : 'text-indigo-600'">
+                                        <span :class="teacher.numerator === teacher.denominator ? 'text-emerald-600' : 'text-[#004D2C]'">
                                             {{ teacher.numerator }}
                                         </span>
                                         <span class="text-gray-400 mx-1">/</span>
                                         <span class="text-gray-700">{{ teacher.denominator }}</span>
-                                        <span class="text-[10px] ml-1 px-1.5 py-0.2 rounded font-sans" 
+                                        <span class="text-[10px] ml-1.5 px-1.5 py-0.2 rounded font-sans" 
                                               :class="teacher.numerator === teacher.denominator ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
                                             {{ teacher.numerator === teacher.denominator ? '已排滿' : '排課中' }}
                                         </span>
@@ -267,8 +271,7 @@
                 </div>
 
                 <div v-if="currentTab !== 'stats'" class="grid grid-cols-6 gap-2 h-full min-h-[620px]">
-                    
-                   <div class="bg-gray-100 p-3 text-center font-extrabold text-gray-600 rounded-lg flex items-center justify-center border text-sm">節數 / 時間</div>
+                    <div class="bg-gray-100 p-3 text-center font-extrabold text-gray-600 rounded-lg flex items-center justify-center border text-sm">節數 / 時間</div>
                     <div v-for="(dayName, dayIdx) in ['星期一', '星期二', '星期三', '星期四', '星期五']" :key="dayIdx" class="bg-slate-100 p-3 text-center font-extrabold text-slate-700 rounded-lg flex items-center justify-center border text-sm">
                         {{ dayName }}
                     </div>
@@ -276,12 +279,14 @@
                     <template v-for="slot in timeSlots" :key="slot.num">
                         <div class="bg-gray-50 border p-2 flex flex-col justify-center items-center rounded-lg text-center shadow-sm">
                             <span class="font-extrabold text-gray-700 text-sm">第 {{ slot.num }} 節</span>
-                            <span class="text-tx font-bold text-indigo-600 mt-1 font-mono bg-white px-1 py-0.5 rounded border">{{ slot.time }}</span>
+                            <span class="text-xs font-bold text-indigo-700 mt-1 font-mono bg-white px-1.5 py-0.5 rounded border">{{ slot.time }}</span>
                         </div>
 
-                        <div v-for="day in 5" :key="day" class="border border-dashed border-gray-300 rounded-xl p-1 bg-gray-50/20 hover:bg-indigo-50/40 transition-all flex flex-col justify-start min-h-[95px]" @dragover.prevent @drop="currentTab === 'class' ? onDrop($event, day, slot.num) : null">
+                        <div v-for="day in 5" :key="day" 
+                             class="border border-dashed border-gray-300 rounded-xl p-1 bg-gray-50/20 hover:bg-emerald-50/30 transition-all flex flex-col justify-start min-h-[95px]" 
+                             @dragover.prevent 
+                             @drop="currentTab === 'class' ? onDrop($event, day, slot.num) : null">
                             
-                            <!-- 情況 A：班級課表模式 -->
                             <template v-if="currentTab === 'class'">
                                 <div v-for="item in getCellBlocks(day, slot.num)" :key="item.id" draggable="true" @dragstart="onDragStartFromGrid($event, item)" :class="['p-2 rounded-lg shadow-sm h-full w-full flex flex-col justify-between relative group cursor-grab hover:shadow-md transition-all border min-h-[85px]', searchTeacher && item.teacher === searchTeacher ? 'ring-4 ring-amber-400 border-amber-500 bg-amber-50/90' : getColorClass(item.program).bg, getColorClass(item.program).border]">
                                     <div>
@@ -310,12 +315,11 @@
                                 </div>
                             </template>
 
-                            <!-- 情況 B：老師專屬課表檢視模式 -->
                             <template v-else-if="currentTab === 'teacher'">
                                 <div v-for="item in getTeacherCellBlocks(day, slot.num)" :key="item.id" :class="['p-2 rounded-lg shadow-sm h-full w-full flex flex-col justify-between border min-h-[85px] bg-amber-50/90 border-amber-300 ring-2 ring-amber-200']">
                                     <div>
                                         <div class="flex justify-between items-center mb-1">
-                                            <span class="text-[9px] font-bold px-1 py-0.2 rounded bg-indigo-600 text-white font-mono">
+                                            <span class="text-[9px] font-bold px-1 py-0.2 rounded bg-[#004D2C] text-white font-mono">
                                                 {{ item.block.subjectCode ? item.block.subjectCode : item.block.grade }}-{{ item.block.className }}
                                             </span>
                                             <span class="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-600 text-white shadow-xs">
@@ -333,29 +337,28 @@
                                 <div v-if="!searchTeacher" class="text-center text-gray-300 text-[10px] my-auto">未選教師</div>
                                 <div v-else-if="getTeacherCellBlocks(day, slot.num).length === 0" class="text-center text-emerald-600 font-medium text-[10px] my-auto bg-emerald-50/50 py-1 rounded border border-dashed border-emerald-200">無排堂 (空檔)</div>
                             </template>
+
                             <template v-else-if="currentTab === 'slot'">
-                                <div class="w-full h-full flex flex-col justify-between min-h-[85px]">
-                                    <div class="text-center py-1.5 rounded-lg font-extrabold text-sm border"
-                                         :class="getSlotDensityClass(getSlotAllBlocks(day, slot.num).length)">
-                                        已排：{{ getSlotAllBlocks(day, slot.num).length }} 節課
+                                <div :class="['w-full h-full rounded-xl p-2 flex flex-col justify-between items-center border transition-all', getSlotDensityClass(day, slot.num).bg, getSlotDensityClass(day, slot.num).border]">
+                                    <div class="text-center mt-1">
+                                        <span :class="['text-xs font-black px-2 py-0.5 rounded-full font-mono shadow-xs', getSlotDensityClass(day, slot.num).badge]">
+                                            {{ getSlotAllBlocks(day, slot.num).length }} 門課
+                                        </span>
                                     </div>
-                                    
-                                    <div class="flex-1 overflow-y-auto max-h-[60px] space-y-1 mt-1.5 pr-0.5">
-                                        <div v-for="item in getSlotAllBlocks(day, slot.num)" :key="item.id"
-                                             class="text-[9px] px-1 py-0.5 rounded bg-white border border-gray-200 text-gray-700 truncate"
-                                             :title="`${item.block.subject} (${item.block.teacher}) - ${item.block.grade}${item.block.className}班`">
-                                            <span class="font-bold text-indigo-600">[{{ item.block.teacher }}]</span> {{ item.block.subject }}
+                                    <div class="w-full space-y-1 overflow-y-auto max-h-[55px] pt-1 text-[9px] font-medium text-gray-500">
+                                        <div v-for="b in getSlotAllBlocks(day, slot.num)" :key="b.id" class="bg-white/80 px-1 py-0.2 rounded border text-center truncate shadow-2xs">
+                                            {{ b.teacher }}: {{ b.subjectCode ? b.subjectCode : b.grade }}-{{ b.className }}
                                         </div>
                                     </div>
                                 </div>
                             </template>
+
                         </div>
                     </template>
                 </div>
             </div>
         </div>
 
-        <!-- 批量自動生成彈窗 -->
         <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 space-y-4 border flex flex-col max-h-[90vh]">
                 <div class="flex justify-between items-center border-b pb-2">
@@ -393,15 +396,13 @@
                         <tbody>
                             <tr v-for="(row, index) in formRows" :key="index" class="border-b hover:bg-slate-50/50">
                                 <td class="p-2 pl-4">
-                                    <tr v-for="(row, index) in formRows" :key="index" class="border-b hover:bg-slate-50/50">
-                                <td class="p-2 pl-4">
-                                    <input type="text" v-model="row.subjectCode" placeholder="例如：BAE106" class="w-full border rounded p-1.5 bg-white focus:outline-indigo-500 font-mono font-bold uppercase">
+                                    <input type="text" v-model="row.subjectCode" placeholder="例如：BAE106" class="w-full border rounded p-1.5 bg-white focus:outline-[#004D2C] font-mono font-bold uppercase">
                                 </td>
                                 <td class="p-2">
-                                    <input type="text" v-model="row.subject" placeholder="例如：會計學導論I" class="w-full border rounded p-1.5 bg-white focus:outline-indigo-500">
+                                    <input type="text" v-model="row.subject" placeholder="例如：會計學導論I" class="w-full border rounded p-1.5 bg-white focus:outline-[#004D2C]">
                                 </td>
                                 <td class="p-2">
-                                    <input type="text" v-model="row.teacher" placeholder="例如：李迪" class="w-full border rounded p-1.5 bg-white focus:outline-indigo-500">
+                                    <input type="text" v-model="row.teacher" placeholder="例如：李迪" class="w-full border rounded p-1.5 bg-white focus:outline-[#004D2C]">
                                 </td>
                                 <td class="p-2">
                                     <div class="flex items-center space-x-1">
@@ -428,12 +429,12 @@
                 </div>
 
                 <div class="flex justify-between items-center pt-2">
-                    <button @click="addFormRow" class="px-4 py-2 border border-indigo-600 text-indigo-600 rounded-lg text-xs font-semibold hover:bg-indigo-50 transition">
+                    <button @click="addFormRow" class="px-4 py-2 border border-[#004D2C] text-[#004D2C] rounded-lg text-xs font-semibold hover:bg-emerald-50 transition">
                         增加一欄科目 / 老師
                     </button>
                     <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 max-w-md">
                         <span class="font-bold">總生成效果預覽：</span>
-                        <span>將智能生成多個拼圖卡片。</span>
+                        <span>將根據配置智能生成精細化拼圖卡片。</span>
                     </div>
                 </div>
 
@@ -494,7 +495,7 @@
                     switch(code) {
                         case "BAECF":
                             return {
-                                bg: "bg-slate-100 hover:bg-slate-200/80", border: "border-slate-300",
+                                bg: "bg-slate-50 hover:bg-slate-100", border: "border-slate-300",
                                 text: "text-slate-900", teacherText: "text-slate-600",
                                 badgeBg: "bg-slate-500", tagBg: "bg-white", tagBorder: "border-slate-200", tagText: "text-slate-700"
                             };
@@ -502,7 +503,7 @@
                             return {
                                 bg: "bg-emerald-50 hover:bg-emerald-100/80", border: "border-emerald-200",
                                 text: "text-emerald-900", teacherText: "text-emerald-700",
-                                badgeBg: "bg-emerald-600", tagBg: "bg-white", tagBorder: "border-emerald-200", tagText: "text-emerald-800"
+                                badgeBg: "bg-[#004D2C]", tagBg: "bg-white", tagBorder: "border-emerald-200", tagText: "text-emerald-800"
                             };
                         case "MFTBF":
                             return {
@@ -526,11 +527,9 @@
 
                 const grades = ["大一", "大二", "大三", "大四", "研一", "研二", "博一", "博二", "博三"];
 
-                // 核心數據
                 const unassignedBlocks = ref(JSON.parse(localStorage.getItem('fai_unassignedBlocks')) || []);
                 const timetable = ref(JSON.parse(localStorage.getItem('fai_timetable')) || []);
 
-                // 篩選與追蹤狀態
                 const filterProgram = ref("");
                 const filterGrade = ref("");
                 const filterClass = ref("");
@@ -541,7 +540,6 @@
                 const currentTab = ref("class"); 
                 const searchTeacher = ref("");
 
-                // 動態獲取全學院所有有任務的老師清單
                 const allTeachersList = computed(() => {
                     const teachers = new Set();
                     unassignedBlocks.value.forEach(b => { if(b.teacher) teachers.add(b.teacher.trim()); });
@@ -554,8 +552,6 @@
                 const formRows = ref([
                     { subjectCode: "", subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }
                 ]);
-
-                function addFormRow() { formRows.value.push({ subjectCode: "", subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }); }
 
                 const availableClassesForView = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"];
 
@@ -578,28 +574,52 @@
                     });
                 });
 
+                // 動態歸納與時數計算屬性
+                const teacherStatsList = computed(() => {
+                    const statsMap = {};
+
+                    unassignedBlocks.value.forEach(block => {
+                        const tName = block.teacher ? block.teacher.trim() : "";
+                        if (!tName) return;
+                        if (!statsMap[tName]) statsMap[tName] = { name: tName, classSet: new Set(), totalBlocksCount: 0, scheduledBlocksCount: 0 };
+                        const classKey = `${block.subject} ${block.subjectCode ? block.subjectCode : block.grade}-${block.className}`;
+                        statsMap[tName].classSet.add(classKey);
+                        statsMap[tName].totalBlocksCount += 1;
+                    });
+
+                    timetable.value.forEach(item => {
+                        if (!item.block || !item.block.teacher) return;
+                        const tName = item.block.teacher.trim();
+                        if (!statsMap[tName]) statsMap[tName] = { name: tName, classSet: new Set(), totalBlocksCount: 0, scheduledBlocksCount: 0 };
+                        const classKey = `${item.block.subject} ${item.block.subjectCode ? item.block.subjectCode : item.block.grade}-${item.block.className}`;
+                        statsMap[tName].classSet.add(classKey);
+                        statsMap[tName].totalBlocksCount += 1;     
+                        statsMap[tName].scheduledBlocksCount += 1; 
+                    });
+
+                    return Object.values(statsMap).map(teacher => {
+                        const uniqueClassesCount = teacher.classSet.size;
+                        const denominator = uniqueClassesCount * 45;
+                        let numerator = 0;
+                        if (teacher.totalBlocksCount > 0) {
+                            numerator = Math.round((teacher.scheduledBlocksCount / teacher.totalBlocksCount) * denominator);
+                        }
+                        return { name: teacher.name, classes: Array.from(teacher.classSet), numerator: numerator, denominator: denominator };
+                    }).sort((a, b) => b.denominator - a.denominator);
+                });
+
                 watch([unassignedBlocks, timetable], () => {
                     localStorage.setItem('fai_unassignedBlocks', JSON.stringify(unassignedBlocks.value));
                     localStorage.setItem('fai_timetable', JSON.stringify(timetable.value));
                 }, { deep: true });
 
-                // 判斷某老師是否在其他班級有課
                 function checkTeacherHasClassElsewhere(day, slot) {
                     if (!searchTeacher.value) return false;
-                    return timetable.value.some(item => 
-                        item.day === day && 
-                        item.slot === slot && 
-                        item.block.teacher === searchTeacher.value
-                    );
+                    return timetable.value.some(item => item.day === day && item.slot === slot && item.block.teacher === searchTeacher.value);
                 }
 
-                // 獲取該老師在其他班上課的具體詳情
                 function getTeacherElsewhereDetails(day, slot) {
-                    const found = timetable.value.find(item => 
-                        item.day === day && 
-                        item.slot === slot && 
-                        item.block.teacher === searchTeacher.value
-                    );
+                    const found = timetable.value.find(item => item.day === day && item.slot === slot && item.block.teacher === searchTeacher.value);
                     if (!found) return "";
                     return `${found.block.subject} (${getProgramCode(found.block.program)}-${found.block.grade}${found.block.className}班)`;
                 }
@@ -610,10 +630,11 @@
 
                 function openModal() {
                     formCommon.value = { program: "應用經濟學學士學位課程", grade: "大一" };
-                    formRows.value = [{ subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }];
+                    formRows.value = [{ subjectCode: "", subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }];
                     showModal.value = true;
                 }
 
+                function addFormRow() { formRows.value.push({ subjectCode: "", subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }); }
                 function removeFormRow(index) { if (formRows.value.length > 1) formRows.value.splice(index, 1); }
 
                 function getRowClassesArray(row) {
@@ -663,7 +684,7 @@
                     if (classConflict) { alert(`❌【班級課表衝突！】\n${draggedBlockData.grade}${draggedBlockData.className}班 該時段已有「${classConflict.block.subject}」！`); return; }
                     
                     const teacherConflict = timetable.value.find(item => item !== originalGridItem && item.day === targetDay && item.slot === targetSlot && item.block.teacher === draggedBlockData.teacher);
-                    if (teacherConflict) { alert(`❌【教師時間撞堂！】\n${draggedBlockData.teacher}老師該時段已在「${teacherConflict.block.grade}${teacherConflict.block.className}班 Gord」上堂！`); return; }
+                    if (teacherConflict) { alert(`❌【教師時間撞堂！】\n${draggedBlockData.teacher}老師該時段已在「${teacherConflict.block.grade}${teacherConflict.block.className}班」上堂！`); return; }
 
                     if (dragSource === 'pool') {
                         timetable.value.push({ day: targetDay, slot: targetSlot, block: draggedBlockData });
@@ -681,99 +702,47 @@
                     }).map(item => ({ ...item.block, originItem: item }));
                 }
 
-                // 獲取指定老師在特定星期和節數的所有排堂資料（供老師時間表視窗渲染）
                 function getTeacherCellBlocks(day, slot) {
                     if (!searchTeacher.value) return [];
-                    return timetable.value.filter(item => 
-                        item.day === day && 
-                        item.slot === slot && 
-                        item.block.teacher.trim() === searchTeacher.value.trim()
-                    );
+                    return timetable.value.filter(item => item.day === day && item.slot === slot && item.block.teacher.trim() === searchTeacher.value.trim());
                 }
-                // 🆕 獲取全學院在該時段排定的所有課程（不論班級與老師）
+
                 function getSlotAllBlocks(day, slot) {
-                    return timetable.value.filter(item => item.day === day && item.slot === slot);
+                    return timetable.value.filter(item => item.day === day && item.slot === slot).map(item => item.block);
                 }
 
-                // 🆕 核心統計邏輯：動態計算全院所有老師的班級科目明細及學時(分子/分母)
-                const teacherStatsList = computed(() => {
-                    const statsMap = {};
+                // 🚀 核心修改點 2：時段排課分佈密度監控優化（改為 >= 3% 標紅，其餘安全綠色）
+                function getSlotDensityClass(day, slot) {
+                    const count = getSlotAllBlocks(day, slot).length;
+                    const total = timetable.value.length;
+                    if (count === 0) {
+                        return { bg: "bg-gray-50/40", border: "border-gray-200", badge: "bg-gray-100 text-gray-500" };
+                    }
+                    
+                    // 計算當前節次佔全院已排課總量的比例
+                    const percentage = total > 0 ? (count / total) * 100 : 0;
 
-                    // 1. 掃描「待排課池」 (決定分母：總共產生了多少節課)
-                    unassignedBlocks.value.forEach(block => {
-                        const tName = block.teacher ? block.teacher.trim() : "";
-                        if (!tName) return;
-                        
-                        if (!statsMap[tName]) {
-                            statsMap[tName] = { name: tName, classSet: new Set(), totalBlocksCount: 0, scheduledBlocksCount: 0 };
-                        }
-                        
-                        const classKey = `${block.subject} ${block.subjectCode ? block.subjectCode : block.grade}-${block.className}`;
-                        statsMap[tName].classSet.add(classKey);
-                        statsMap[tName].totalBlocksCount += 1; // 分母拼圖塊 +1
-                    });
-
-                    // 2. 掃描「已排課表」 (同時決定分子與分母)
-                    timetable.value.forEach(item => {
-                        if (!item.block || !item.block.teacher) return;
-                        const tName = item.block.teacher.trim();
-                        
-                        if (!statsMap[tName]) {
-                            statsMap[tName] = { name: tName, classSet: new Set(), totalBlocksCount: 0, scheduledBlocksCount: 0 };
-                        }
-                        
-                        const classKey = `${item.block.subject} ${item.block.subjectCode ? item.block.subjectCode : item.block.grade}-${item.block.className}`;
-                        statsMap[tName].classSet.add(classKey);
-                        
-                        statsMap[tName].totalBlocksCount += 1;     // 既然出現在這，代表它也是生成的總拼圖之一 (分母)
-                        statsMap[tName].scheduledBlocksCount += 1; // 且它已經排好了 (分子)
-                    });
-
-                    // 3. 轉化為前端表格需要的陣列結構，並把「拼圖塊數量」換算成「學時 (每班 45 學時)」
-                    // 備註：因為同一個班級科目的總拼圖塊代表 45 學時，分子 = (已排數 / 總數) * 45 * 班級數
-                    return Object.values(statsMap).map(teacher => {
-                        const uniqueClassesCount = teacher.classSet.size; // 該老師總共帶了多少個不同的班級科目
-                        const denominator = uniqueClassesCount * 45;      // 基準分母：班級數 * 45 學時
-                        
-                        // 計算分子：按照已排課塊的比例折算學時
-                        let numerator = 0;
-                        if (teacher.totalBlocksCount > 0) {
-                            numerator = Math.round((teacher.scheduledBlocksCount / teacher.totalBlocksCount) * denominator);
-                        }
-
-                        return {
-                            name: teacher.name,
-                            classes: Array.from(teacher.classSet),
-                            numerator: numerator,     // 分子：已排學時
-                            denominator: denominator  // 分母：總生成學時
-                        };
-                    }).sort((a, b) => b.denominator - a.denominator); // 按總工作量由高到低排序
-                });
-                
-                // 🆕 根據排課數量自動變色（沒課綠色、課少灰色、課多變橙色提醒）
-                function getSlotDensityClass(count) {
-                    if (count === 0) return "bg-emerald-50 border-emerald-200 text-emerald-700";
-                    if (count <= 2) return "bg-slate-50 border-slate-200 text-slate-700";
-                    if (count <= 5) return "bg-orange-50 border-orange-200 text-orange-700";
-                    return "bg-rose-50 border-rose-200 text-rose-700 ring-1 ring-rose-200";
+                    // 只有當排課密度達到或超過全院總課量的 3% 時，才顯示高能警示紅
+                    if (percentage >= 3.0) {
+                        return { bg: "bg-rose-50/90", border: "border-rose-300 ring-1 ring-rose-200", badge: "bg-rose-600 text-white animate-pulse" };
+                    } else if (percentage >= 1.5) {
+                        return { bg: "bg-amber-50/70", border: "border-amber-200", badge: "bg-amber-500 text-white" };
+                    } else {
+                        // 未達到警示線，一律顯示健康與舒適的學院綠色調
+                        return { bg: "bg-emerald-50/60", border: "border-emerald-200", badge: "bg-emerald-600 text-white" };
+                    }
                 }
+
                 function removeSchedule(blockWithOrigin) {
                     const originalItem = blockWithOrigin.originItem;
                     timetable.value = timetable.value.filter(item => item !== originalItem);
                     unassignedBlocks.value.push(originalItem.block);
                 }
-                // 新增：直接從待排課池中徹底刪除某個錯誤生成嘅拼圖塊
-                function deletePoolBlock(block) {
-                    if (confirm(`確定要徹底刪除「${block.grade}${block.className}班 - ${block.subject} (${block.teacher}老師)」這塊拼圖嗎？`)) {
-                        unassignedBlocks.value = unassignedBlocks.value.filter(b => b.id !== block.id);
-                    }
-                }
-                // 導出 Excel
-// 🆕 終極重構：修正班級格式為阿拉伯數字，並追加「教學時數統計」分頁(橫向展開，最多6班)
+
+                // 🚀 核心修改點 1 & 4：Excel 清單重構、大一變1、統計頁移除中括號 []
                 function exportToExcel() {
                     if (timetable.value.length === 0) { alert("當前未排定任何課程。"); return; }
 
-                    // 助手：將中文年級轉換為阿拉伯數字
                     function convertGradeToNum(gradeStr) {
                         if (!gradeStr) return "";
                         if (gradeStr.includes("大一") || gradeStr.includes("研一") || gradeStr.includes("博一")) return "1";
@@ -786,14 +755,11 @@
                     const dayNames = ["", "星期一", "星期二", "星期三", "星期四", "星期五"];
                     const sheetsMap = {};
 
-                    // ==========================================
-                    // 階段一：生成前幾個排課明細分頁 (例如 BAECF大一)
-                    // ==========================================
+                    // 1. 常規排課清單生成
                     timetable.value.forEach(item => {
                         const progCode = getProgramCode(item.block.program);
                         const grade = item.block.grade || "";
                         const sheetName = `${progCode}${grade}`.substring(0, 31);
-
                         if (!sheetsMap[sheetName]) sheetsMap[sheetName] = [];
                         sheetsMap[sheetName].push(item);
                     });
@@ -807,11 +773,8 @@
                         rawItems.forEach(item => {
                             const subCode = item.block.subjectCode || "N/A";
                             const subName = item.block.subject || "N/A";
-                            
-                            // 🚀 核心修改點 1：將原本的 "大一A班" 轉換為 "1A"
                             const numGrade = convertGradeToNum(item.block.grade);
                             const clsName = `${numGrade}${item.block.className}`; 
-                            
                             const teacher = item.block.teacher || "N/A";
                             const key = `${subCode}##${subName}##${clsName}##${teacher}`;
 
@@ -819,48 +782,30 @@
                             const timeStr = slotObj ? slotObj.time : `第${item.slot}節`;
 
                             if (!uniqueCourseMap[key]) {
-                                uniqueCourseMap[key] = {
-                                    subjectCode: subCode,
-                                    subjectName: subName,
-                                    className: clsName,
-                                    teacher: teacher,
-                                    timeSlotsByDay: {}
-                                };
+                                uniqueCourseMap[key] = { subjectCode: subCode, subjectName: subName, className: clsName, teacher: teacher, timeSlotsByDay: {} };
                             }
 
                             const dayName = dayNames[item.day] || `星期${item.day}`;
-                            if (!uniqueCourseMap[key].timeSlotsByDay[dayName]) {
-                                uniqueCourseMap[key].timeSlotsByDay[dayName] = [];
-                            }
+                            if (!uniqueCourseMap[key].timeSlotsByDay[dayName]) uniqueCourseMap[key].timeSlotsByDay[dayName] = [];
                             if (!uniqueCourseMap[key].timeSlotsByDay[dayName].includes(timeStr)) {
                                 uniqueCourseMap[key].timeSlotsByDay[dayName].push(timeStr);
                             }
                         });
 
                         const finalRows = Object.values(uniqueCourseMap).map(course => {
-                            let formattedDay = "";
-                            let formattedTime = "";
+                            let formattedDay = ""; let formattedTime = "";
                             const days = Object.keys(course.timeSlotsByDay);
                             const firstDayTimes = course.timeSlotsByDay[days[0]].sort().join("; ");
                             const isAllDaysSameTime = days.every(d => course.timeSlotsByDay[d].sort().join("; ") === firstDayTimes);
 
                             if (isAllDaysSameTime) {
-                                formattedDay = days.join('、');
-                                formattedTime = firstDayTimes;
+                                formattedDay = days.join('、'); formattedTime = firstDayTimes;
                             } else {
                                 const details = days.map(d => `${d} ${course.timeSlotsByDay[d].sort().join('; ')}`);
-                                formattedDay = days.join('、');
-                                formattedTime = details.join(' | ');
+                                formattedDay = days.join('、'); formattedTime = details.join(' | ');
                             }
 
-                            return {
-                                "科目編號": course.subjectCode,
-                                "科目名稱": course.subjectName,
-                                "班級": course.className,
-                                "上課日": formattedDay,
-                                "上課時段": formattedTime,
-                                "授課老師": course.teacher
-                            };
+                            return { "科目編號": course.subjectCode, "科目名稱": course.subjectName, "班級": course.className, "上課日": formattedDay, "上課時段": formattedTime, "授課老師": course.teacher };
                         });
 
                         const headers = ["科目編號", "科目名稱", "班級", "上課日", "上課時段", "授課老師"];
@@ -868,68 +813,44 @@
                         XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
                     });
 
-                    // ==========================================
-                    // 階段二：🆕 新增最後一個分頁「教學時數統計」
-                    // ==========================================
-                    // 複用前端已算好的核心邏輯，直接從對應架構中讀取
+                    // 2. 教學時數統計橫向展開頁面 (完美移除 [] 符號)
                     const tStatsMap = {};
 
-                    // 全量掃描確定所有老師
                     unassignedBlocks.value.forEach(block => {
-                        const tName = block.teacher ? block.teacher.trim() : "";
-                        if (!tName) return;
+                        const tName = block.teacher ? block.teacher.trim() : ""; if (!tName) return;
                         if (!tStatsMap[tName]) tStatsMap[tName] = { name: tName, classSet: new Set(), totalBlocks: 0, scheduledBlocks: 0 };
-                        const numGrade = convertGradeToNum(block.grade);
                         const str = `${block.subject} ${block.subjectCode ? block.subjectCode : block.grade}-${block.className}`;
-                        tStatsMap[tName].classSet.add(str);
-                        tStatsMap[tName].totalBlocks += 1;
+                        tStatsMap[tName].classSet.add(str); tStatsMap[tName].totalBlocks += 1;
                     });
 
                     timetable.value.forEach(item => {
                         if (!item.block || !item.block.teacher) return;
                         const tName = item.block.teacher.trim();
                         if (!tStatsMap[tName]) tStatsMap[tName] = { name: tName, classSet: new Set(), totalBlocks: 0, scheduledBlocks: 0 };
-                        const numGrade = convertGradeToNum(item.block.grade);
                         const str = `${item.block.subject} ${item.block.subjectCode ? item.block.subjectCode : item.block.grade}-${item.block.className}`;
                         tStatsMap[tName].classSet.add(str);
-                        tStatsMap[tName].totalBlocks += 1;
-                        tStatsMap[tName].scheduledBlocks += 1;
+                        tStatsMap[tName].totalBlocks += 1; tStatsMap[tName].scheduledBlocks += 1;
                     });
 
-                    // 建立橫向擴展數據行
                     const statsRows = Object.values(tStatsMap).map(teacher => {
                         const classesArray = Array.from(teacher.classSet);
-                        const totalHours = classesArray.length * 45; // 每個班級科目固定 45 學時
-                        
-                        // 折算分子（已排學時）
+                        const totalHours = classesArray.length * 45;
                         let currentHours = 0;
-                        if (teacher.totalBlocks > 0) {
-                            currentHours = Math.round((teacher.scheduledBlocks / teacher.totalBlocks) * totalHours);
-                        }
+                        if (teacher.totalBlocks > 0) currentHours = Math.round((teacher.scheduledBlocks / teacher.totalBlocks) * totalHours);
 
-                        // 構建一行：包含老師、班級 1-6、總課時
-                        const rowObj = {
-                            "授課老師": `${teacher.name}老師`
-                        };
-
-                        // 🚀 核心修改點 2：動態平鋪 1 到 6 個班級，每個班級佔用單獨一格
+                        const rowObj = { "授課老師": `${teacher.name}老師` };
                         for (let i = 0; i < 6; i++) {
-                            rowObj[`班級 ${i + 1}`] = classesArray[i] ? `[${classesArray[i]}]` : "";
+                            // 修改點：直接輸出名稱字串，不再包裹中括號 [ ]
+                            rowObj[`班級 ${i + 1}`] = classesArray[i] ? classesArray[i] : "";
                         }
-
-                        // 最後一格放置進度學時
                         rowObj["總課時"] = `${currentHours} / ${totalHours}`;
                         return rowObj;
                     }).sort((a, b) => b["授課老師"] < a["授課老師"] ? 1 : -1);
 
-                    // 設置統計工作表的特定表頭順序
                     const statsHeaders = ["授課老師", "班級 1", "班級 2", "班級 3", "班級 4", "班級 5", "班級 6", "總課時"];
                     const statsWorksheet = XLSX.utils.json_to_sheet(statsRows, { header: statsHeaders });
-                    
-                    // 追加到最後一個分頁
                     XLSX.utils.book_append_sheet(workbook, statsWorksheet, "教學時數統計");
 
-                    // 9. 執行保存
                     XLSX.writeFile(workbook, `金融學院課表及教學時數總匯.xlsx`);
                 }
 
@@ -954,12 +875,12 @@
 
                 return {
                     timeSlots, programs, programCodes, getProgramCode, getColorClass, grades, unassignedBlocks, timetable,
-                    filterProgram, filterGrade, filterClass, viewProgram, viewGrade, viewClass, currentTab,
+                    filterProgram, filterGrade, filterClass, viewProgram, viewGrade, viewClass,
                     searchTeacher, allTeachersList, checkTeacherHasClassElsewhere, getTeacherElsewhereDetails, getTeacherLessonCount,
                     showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
                     openModal, addFormRow, removeFormRow, onDragStartFromPool, onDragStartFromGrid, onDrop, 
-                    getCellBlocks, getTeacherCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules,
-                    deletePoolBlock, getSlotAllBlocks, getSlotDensityClass, teacherStatsList
+                    getCellBlocks, getTeacherCellBlocks, getSlotAllBlocks, getSlotDensityClass, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules,
+                    currentTab, teacherStatsList
                 };
             }
         }).mount('#app');
