@@ -280,9 +280,9 @@
                     </div>
                 </div>
 
-                <div v-if="currentTab !== 'stats'" class="grid grid-cols-6 gap-2 h-full min-h-[620px]">
+           <div v-if="currentTab !== 'stats'" class="grid grid-cols-8 gap-2 h-full min-h-[620px]">
                     <div class="bg-gray-100 p-3 text-center font-extrabold text-gray-600 rounded-lg flex items-center justify-center border text-sm">節數 / 時間</div>
-                    <div v-for="(dayName, dayIdx) in ['星期一', '星期二', '星期三', '星期四', '星期五']" :key="dayIdx" class="bg-slate-100 p-3 text-center font-extrabold text-slate-700 rounded-lg flex items-center justify-center border text-sm">
+                    <div v-for="(dayName, dayIdx) in ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']" :key="dayIdx" class="bg-slate-100 p-3 text-center font-extrabold text-slate-700 rounded-lg flex items-center justify-center border text-sm">
                         {{ dayName }}
                     </div>
 
@@ -292,7 +292,7 @@
                             <span class="text-xs font-bold text-indigo-700 mt-1 font-mono bg-white px-1.5 py-0.5 rounded border">{{ slot.time }}</span>
                         </div>
 
-                        <div v-for="day in 5" :key="day" 
+                        <div v-for="day in 7" :key="day" 
                              class="border border-dashed border-gray-300 rounded-xl p-1 bg-gray-50/20 hover:bg-emerald-50/30 transition-all flex flex-col justify-start min-h-[95px]" 
                              @dragover.prevent 
                              @drop="currentTab === 'class' ? onDrop($event, day, slot.num) : null">
@@ -770,7 +770,8 @@
                         return gradeStr;
                     }
 
-                    const dayNames = ["", "星期一", "星期二", "星期三", "星期四", "星期五"];
+                    // 🆕 修改：支持導出星期六與星期日的排課中文文本
+                    const dayNames = ["", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"];
                     const sheetsMap = {};
 
                     // 1. 常規排課清單生成
