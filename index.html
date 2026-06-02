@@ -126,6 +126,9 @@
                 <button @click="currentTab = 'slot'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'slot' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-gray-700']">
                     📊 按排課時段檢閱
                 </button>
+                <button @click="currentTab = 'stats'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'stats' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-gray-700']">
+                    📈 教學時數統計
+                </button>
             </div>
 
             <!-- TAB 1：班級課表檢視下的篩選欄 -->
@@ -192,7 +195,75 @@
 
             <!-- 大棋盤主體區 -->
             <div class="flex-1 overflow-auto">
-                <div class="grid grid-cols-6 gap-2 h-full min-h-[620px]">
+                
+                <div v-if="currentTab === 'stats'" class="bg-white rounded-xl border border-gray-200 p-2 space-y-4">
+                    <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-4 rounded-xl text-white flex justify-between items-center shadow-sm">
+                        <div>
+                            <h3 class="font-bold text-base">👨‍🏫 全院教師教學時數核算明細</h3>
+                            <p class="text-xs text-indigo-100 mt-0.5">每門班級課程基準為 45 學時。分子為已排入課表的學時，分母為生成拼圖塊的總需求學時。</p>
+                        </div>
+                        <div class="bg-white/10 px-3 py-1.5 rounded-lg text-right">
+                            <span class="text-xs block opacity-80">全院總計師資</span>
+                            <span class="font-extrabold text-lg">{{ teacherStatsList.length }} 位</span>
+                        </div>
+                    </div>
+
+                    <div class="border rounded-xl overflow-hidden shadow-sm">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-gray-200 text-gray-600 font-semibold">
+                                    <th class="p-3 pl-5 w-32">教師姓名</th>
+                                    <th class="p-3">任教班級與科目明細</th>
+                                    <th class="p-3 w-48 text-center">排課進度條</th>
+                                    <th class="p-3 pr-5 w-48 text-right">已排學時 / 總學時 (分母)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="teacher in teacherStatsList" :key="teacher.name" class="border-b hover:bg-slate-50/50 transition-colors">
+                                    <td class="p-3 pl-5 font-bold text-gray-800 flex items-center">
+                                        <span class="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>
+                                        {{ teacher.name }} 老師
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="flex flex-wrap gap-1.5">
+                                            <span v-for="cls in teacher.classes" :key="cls" 
+                                                  class="text-xs px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-gray-700 font-medium">
+                                                [{{ cls }}]
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="p-3">
+                                        <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden border">
+                                            <div class="h-full transition-all duration-500" 
+                                                 :class="teacher.numerator === teacher.denominator ? 'bg-emerald-500' : 'bg-indigo-600'"
+                                                 :style="{ width: (teacher.denominator > 0 ? (teacher.numerator / teacher.denominator * 100) : 0) + '%' }">
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="p-3 pr-5 text-right font-mono font-bold">
+                                        <span :class="teacher.numerator === teacher.denominator ? 'text-emerald-600' : 'text-indigo-600'">
+                                            {{ teacher.numerator }}
+                                        </span>
+                                        <span class="text-gray-400 mx-1">/</span>
+                                        <span class="text-gray-700">{{ teacher.denominator }}</span>
+                                        <span class="text-[10px] ml-1 px-1.5 py-0.2 rounded font-sans" 
+                                              :class="teacher.numerator === teacher.denominator ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+                                            {{ teacher.numerator === teacher.denominator ? '已排滿' : '排課中' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr v-if="teacherStatsList.length === 0">
+                                    <td colspan="4" class="text-center p-8 text-gray-400 text-sm">
+                                        暫無拼圖數據，請先去批量生成拼圖塊。
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div v-if="currentTab !== 'stats'" class="grid grid-cols-6 gap-2 h-full min-h-[620px]">
+                    
                     <div class="bg-gray-100 p-3 text-center font-bold text-gray-500 rounded-lg flex items-center justify-center border text-xs">節數 / 時間</div>
                     <div v-for="(dayName, dayIdx) in ['星期一', '星期二', '星期三', '星期四', '星期五']" :key="dayIdx" class="bg-slate-100 p-3 text-center font-bold text-gray-600 rounded-lg flex items-center justify-center border text-xs">
                         {{ dayName }}
@@ -612,6 +683,61 @@
                     return timetable.value.filter(item => item.day === day && item.slot === slot);
                 }
 
+                // 🆕 核心統計邏輯：動態計算全院所有老師的班級科目明細及學時(分子/分母)
+                const teacherStatsList = computed(() => {
+                    const statsMap = {};
+
+                    // 1. 掃描「待排課池」 (決定分母：總共產生了多少節課)
+                    unassignedBlocks.value.forEach(block => {
+                        const tName = block.teacher ? block.teacher.trim() : "";
+                        if (!tName) return;
+                        
+                        if (!statsMap[tName]) {
+                            statsMap[tName] = { name: tName, classSet: new Set(), totalBlocksCount: 0, scheduledBlocksCount: 0 };
+                        }
+                        
+                        const classKey = `${block.subject}${block.grade}${block.className}班`;
+                        statsMap[tName].classSet.add(classKey);
+                        statsMap[tName].totalBlocksCount += 1; // 分母拼圖塊 +1
+                    });
+
+                    // 2. 掃描「已排課表」 (同時決定分子與分母)
+                    timetable.value.forEach(item => {
+                        if (!item.block || !item.block.teacher) return;
+                        const tName = item.block.teacher.trim();
+                        
+                        if (!statsMap[tName]) {
+                            statsMap[tName] = { name: tName, classSet: new Set(), totalBlocksCount: 0, scheduledBlocksCount: 0 };
+                        }
+                        
+                        const classKey = `${item.block.subject}${item.block.grade}${item.block.className}班`;
+                        statsMap[tName].classSet.add(classKey);
+                        
+                        statsMap[tName].totalBlocksCount += 1;     // 既然出現在這，代表它也是生成的總拼圖之一 (分母)
+                        statsMap[tName].scheduledBlocksCount += 1; // 且它已經排好了 (分子)
+                    });
+
+                    // 3. 轉化為前端表格需要的陣列結構，並把「拼圖塊數量」換算成「學時 (每班 45 學時)」
+                    // 備註：因為同一個班級科目的總拼圖塊代表 45 學時，分子 = (已排數 / 總數) * 45 * 班級數
+                    return Object.values(statsMap).map(teacher => {
+                        const uniqueClassesCount = teacher.classSet.size; // 該老師總共帶了多少個不同的班級科目
+                        const denominator = uniqueClassesCount * 45;      // 基準分母：班級數 * 45 學時
+                        
+                        // 計算分子：按照已排課塊的比例折算學時
+                        let numerator = 0;
+                        if (teacher.totalBlocksCount > 0) {
+                            numerator = Math.round((teacher.scheduledBlocksCount / teacher.totalBlocksCount) * denominator);
+                        }
+
+                        return {
+                            name: teacher.name,
+                            classes: Array.from(teacher.classSet),
+                            numerator: numerator,     // 分子：已排學時
+                            denominator: denominator  // 分母：總生成學時
+                        };
+                    }).sort((a, b) => b.denominator - a.denominator); // 按總工作量由高到低排序
+                });
+                
                 // 🆕 根據排課數量自動變色（沒課綠色、課少灰色、課多變橙色提醒）
                 function getSlotDensityClass(count) {
                     if (count === 0) return "bg-emerald-50 border-emerald-200 text-emerald-700";
@@ -682,7 +808,7 @@
                     showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
                     openModal, addFormRow, removeFormRow, onDragStartFromPool, onDragStartFromGrid, onDrop, 
                     getCellBlocks, getTeacherCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules,
-                    deletePoolBlock, getSlotAllBlocks, getSlotDensityClass
+                    deletePoolBlock, getSlotAllBlocks, getSlotDensityClass, teacherStatsList
                 };
             }
         }).mount('#app');
