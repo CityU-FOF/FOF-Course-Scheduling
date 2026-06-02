@@ -2,7 +2,12 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, minimum-scale=0.2, maximum-scale=5.0">
+    <style>
+        /* 優化移動端體驗：防止手機排課時長按彈出菜單，並允許大棋盤橫向滾動 */
+        #app { touch-action: pan-x pan-y; }
+        body { overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+    </style>
     <title>金融學院排課系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -14,10 +19,13 @@
         
         <div class="w-80 bg-white p-4 rounded-xl shadow-lg mr-4 flex flex-col border border-gray-200 overflow-hidden">
             
-            <div class="mb-4 pb-2 border-b border-gray-100 flex items-center justify-center bg-gray-50 rounded-lg p-2 min-h-[64px]">
-                <img src="金融學院logo.jpg" alt="Faculty of Finance" class="w-full h-auto object-contain max-h-12" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                <div class="hidden text-center font-serif font-bold text-sm text-[#004D2C] tracking-wide">
-                    澳門城市大學 <br><span class="text-[#8A704C] text-xs">金融學院 Faculty of Finance</span>
+          <div class="mb-4 pb-2 border-b border-gray-100 flex flex-col items-start bg-gray-50 rounded-lg p-3 min-h-[64px]">
+                <img src="金融學院logo.jpg" alt="Faculty of Finance" class="w-full h-auto object-contain max-h-12 mb-1" onerror="this.style.display='none';">
+                <div class="font-bold text-2xl text-gray-800 tracking-tight leading-tight">
+                    <span class="text-[#004D2C] block">澳門城市大學</span>
+                    <span class="text-xs text-gray-500 font-mono block tracking-normal uppercase">City University of Macau</span>
+                    <span class="text-[#8A704C] block mt-0.5 text-xl">金融學院</span>
+                    <span class="text-[11px] text-gray-400 font-mono block tracking-normal">Faculty of Finance</span>
                 </div>
             </div>
 
@@ -230,7 +238,7 @@
                                 <tr v-for="teacher in teacherStatsList" :key="teacher.name" class="border-b hover:bg-slate-50/50 transition-colors">
                                     <td class="p-3 pl-5 font-bold text-gray-800">
                                         <span class="inline-block w-2 h-2 rounded-full bg-[#004D2C] mr-2"></span>
-                                        {{ teacher.name }} 老師
+                                        {{ teacher.name }}
                                     </td>
                                     <td class="p-3">
                                         <div class="flex flex-wrap gap-1.5">
@@ -832,15 +840,15 @@
                         tStatsMap[tName].totalBlocks += 1; tStatsMap[tName].scheduledBlocks += 1;
                     });
 
-                    const statsRows = Object.values(tStatsMap).map(teacher => {
+                 const statsRows = Object.values(tStatsMap).map(teacher => {
                         const classesArray = Array.from(teacher.classSet);
                         const totalHours = classesArray.length * 45;
                         let currentHours = 0;
                         if (teacher.totalBlocks > 0) currentHours = Math.round((teacher.scheduledBlocks / teacher.totalBlocks) * totalHours);
 
-                        const rowObj = { "授課老師": `${teacher.name}老師` };
+                        // 修改點：直接輸出名字，不再追加「老師」兩個字
+                        const rowObj = { "授課老師": teacher.name };
                         for (let i = 0; i < 6; i++) {
-                            // 修改點：直接輸出名稱字串，不再包裹中括號 [ ]
                             rowObj[`班級 ${i + 1}`] = classesArray[i] ? classesArray[i] : "";
                         }
                         rowObj["總課時"] = `${currentHours} / ${totalHours}`;
