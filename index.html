@@ -7,10 +7,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        [v-cloak] { display: none !important; }
+    </style>
 </head>
 <body class="bg-gray-100 font-sans antialiased text-gray-800">
 
-    <div id="app" class="flex h-screen overflow-hidden p-4">
+    <div id="app" v-cloak class="flex h-screen overflow-hidden p-4">
         
         <div class="w-96 bg-white p-4 rounded-xl shadow-lg mr-4 flex flex-col border border-gray-200 overflow-hidden">
             
@@ -356,7 +360,6 @@
                     { num: 8, time: "20:30-21:45" }
                 ];
 
-                // 官方指定的四個課程及其映射代號
                 const programs = [
                     "應用經濟學學士學位課程",
                     "金融學碩士學位課程",
@@ -373,7 +376,6 @@
 
                 const grades = ["大一", "大二", "大三", "大四", "研一", "研二", "博一", "博二", "博三"];
 
-                // 內置行政專用高端莫蘭迪調色盤
                 const morandiPalette = [
                     { border: "border-sky-300", bg: "bg-sky-50/70 hover:bg-sky-100/60", gridBg: "bg-sky-50 border-sky-300" },
                     { border: "border-emerald-300", bg: "bg-emerald-50/70 hover:bg-emerald-100/60", gridBg: "bg-emerald-50 border-emerald-300" },
@@ -384,7 +386,6 @@
                     { border: "border-indigo-300", bg: "bg-indigo-50/70 hover:bg-indigo-100/60", gridBg: "bg-indigo-50 border-indigo-300" }
                 ];
 
-                // 根據「課程+科目」雙重哈希，確保同一課程的同個科目（不論哪班）都分配到一致的色系
                 function getMorandiColor(program, subject, isInGrid = false) {
                     const combinedKey = `${programCodes[program] || ''}_${subject}`;
                     let hash = 0;
@@ -396,16 +397,16 @@
                     return isInGrid ? choice.gridBg : `${choice.border} ${choice.bg}`;
                 }
 
-                // 核心持久化數據
+                // 核心數據
                 const unassignedBlocks = ref(JSON.parse(localStorage.getItem('fai_unassignedBlocks')) || []);
                 const timetable = ref(JSON.parse(localStorage.getItem('fai_timetable')) || []);
 
-                // 篩選與檢視模式
+                // 篩選與檢視
                 const filterProgram = ref("");
                 const filterGrade = ref("");
                 const filterClass = ref("");
 
-                const viewMode = ref("class"); // 'class', 'teacher', 'hours'
+                const viewMode = ref("class"); 
                 const viewProgram = ref("應用經濟學學士學位課程");
                 const viewGrade = ref("大一");
                 const viewClass = ref("A");
@@ -415,7 +416,6 @@
                 const formCommon = ref({ program: "應用經濟學學士學位課程", grade: "大一" });
                 const formRows = ref([]);
 
-                // 實時遍歷獲取當前所有的教師名單
                 const allTeachersInSystem = computed(() => {
                     const teachers = new Set();
                     unassignedBlocks.value.forEach(b => teachers.add(b.teacher));
@@ -425,18 +425,14 @@
                     return list;
                 });
 
-                // ==================== 【全新核心亮點：任課時數計算引擎】 ====================
+                // 【時數審計核心計算模組】
                 const teacherHoursReport = computed(() => {
                     const report = {};
 
-                    // 1. 初始化建立：把目前所有存在於系統（池子 + 課表）中的卡片全部統計起來作為分母與基底
-                    // 規則：一個唯一的 [課程代號 + 年級 + 班級 + 科目] 拼圖塊 = 一個授課單元
-                    // 在本系統中，同個單元可能有多節(每週節數)。按用戶提議，一個單元基準為 45 小時
                     const processBlock = (block, isAllocated) => {
                         const t = block.teacher;
                         if (!report[t]) report[t] = { teacherName: t, targetHours: 0, allocatedHours: 0, subjectsRaw: {} };
                         
-                        // 用 [課程_年級_班級_科目] 作為唯一班級單元標識
                         const unitKey = `${block.program}##${block.grade}##${block.className}##${block.subject}`;
                         if (!report[t].subjectsRaw[unitKey]) {
                             report[t].subjectsRaw[unitKey] = {
@@ -447,24 +443,20 @@
                             };
                         }
 
-                        // 只要生成了，它就佔用分母（45小時），但同一個班級單元只算一次分母
                         if (!report[t].subjectsRaw[unitKey].isTargetCounted) {
                             report[t].targetHours += 45;
                             report[t].subjectsRaw[unitKey].isTargetCounted = true;
                         }
 
-                        // 如果它已經被拉進右側課表了，累加分子（45小時），同一個班級單元也只算一次分子
                         if (isAllocated && !report[t].subjectsRaw[unitKey].isAllocatedCounted) {
                             report[t].allocatedHours += 45;
                             report[t].subjectsRaw[unitKey].isAllocatedCounted = true;
                         }
                     };
 
-                    // 先跑一邊未排池，再跑一遍已排課表，精準計算出分子和分母
                     unassignedBlocks.value.forEach(b => processBlock(b, false));
                     timetable.value.forEach(t => processBlock(t.block, true));
 
-                    // 2. 將原始數據轉化為前端排版所需要的易讀陣列結構
                     return Object.values(report).map(teacherData => {
                         const subGroup = {};
                         Object.values(teacherData.subjectsRaw).forEach(s => {
@@ -483,13 +475,16 @@
                     }).sort((a, b) => b.targetHours - a.targetHours);
                 });
 
-                // 是否有老師未排滿
                 const hasIncompleteTeachers = computed(() => {
                     return teacherHoursReport.value.some(t => t.allocatedHours < t.targetHours);
                 });
 
+                // 修復關鍵點：開啟彈窗時強制立即初始化 formRows 數據
                 function openModal() {
-                    formRows.value = [{ subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2, isInsuredTriggered: false }];
+                    formCommon.value = { program: "應用經濟學學士學位課程", grade: "大一" };
+                    formRows.value = [
+                        { subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2, isInsuredTriggered: false }
+                    ];
                     showModal.value = true;
                 }
 
@@ -518,262 +513,4 @@
                     });
 
                     if (existingClasses.size > 0) {
-                        const charCodes = Array.from(existingClasses).map(c => c.toUpperCase().charCodeAt(0));
-                        const maxCode = Math.max(...charCodes);
-                        const nextStartLetter = String.fromCharCode(maxCode + 1);
-                        const currentSpan = row.classEnd.toUpperCase().charCodeAt(0) - row.classStart.toUpperCase().charCodeAt(0);
-                        const newEndLetter = String.fromCharCode(maxCode + 1 + (currentSpan > 0 ? currentSpan : 0));
-
-                        row.classStart = nextStartLetter;
-                        row.classEnd = newEndLetter;
-                        row.isInsuredTriggered = true;
-                    } else {
-                        row.isInsuredTriggered = false;
-                    }
-                }
-
-                function getRowClassesArray(row) {
-                    const start = row.classStart.trim().toUpperCase();
-                    const end = row.classEnd.trim().toUpperCase();
-                    if (!start || !end) return [];
-                    const startCode = start.charCodeAt(0);
-                    const endCode = end.charCodeAt(0);
-                    if (startCode > endCode || startCode < 65 || endCode > 90) return [];
-                    const list = [];
-                    for (let i = startCode; i <= endCode; i++) list.push(String.fromCharCode(i));
-                    return list;
-                }
-
-                const totalPreviewCount = computed(() => {
-                    let total = 0;
-                    formRows.value.forEach(row => {
-                        if (row.subject.trim() && row.teacher.trim()) total += getRowClassesArray(row).length * row.lessonsPerWeek;
-                    });
-                    return total;
-                });
-
-                const validRowsCount = computed(() => formRows.value.filter(r => r.subject.trim() && r.teacher.trim()).length);
-
-                const availableClassesInPool = computed(() => {
-                    const classes = new Set();
-                    unassignedBlocks.value.forEach(b => {
-                        if ((!filterProgram.value || b.program === filterProgram.value) && (!filterGrade.value || b.grade === filterGrade.value)) classes.add(b.className);
-                    });
-                    return Array.from(classes).sort();
-                });
-
-                const availableClassesForView = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"];
-
-                const filteredUnassignedBlocks = computed(() => {
-                    return unassignedBlocks.value.filter(b => {
-                        const matchProg = !filterProgram.value || b.program === filterProgram.value;
-                        const matchGrade = !filterGrade.value || b.grade === filterGrade.value;
-                        const matchCls = !filterClass.value || b.className === filterClass.value;
-                        return matchProg && matchGrade && matchCls;
-                    });
-                });
-
-                watch([unassignedBlocks, timetable], () => {
-                    localStorage.setItem('fai_unassignedBlocks', JSON.stringify(unassignedBlocks.value));
-                    localStorage.setItem('fai_timetable', JSON.stringify(timetable.value));
-                }, { deep: true });
-
-                function generateBlocks() {
-                    const timestamp = Date.now();
-                    let count = 0;
-                    formRows.value.forEach(row => {
-                        if (!row.subject.trim() || !row.teacher.trim()) return;
-                        const classes = getRowClassesArray(row);
-                        classes.forEach(cls => {
-                            for (let i = 0; i < row.lessonsPerWeek; i++) {
-                                unassignedBlocks.value.push({
-                                    id: `B_${timestamp}_${count++}`,
-                                    program: formCommon.value.program,
-                                    grade: formCommon.value.grade,
-                                    subject: row.subject.trim(),
-                                    teacher: row.teacher.trim(),
-                                    className: cls
-                                });
-                            }
-                        });
-                    });
-                    alert(`已成功生成 ${count} 個課程拼圖塊！`);
-                    showModal.value = false;
-                }
-
-                // ==================== 智能雙向跨格子拖拽改期引擎 ====================
-                let dragSource = null; 
-                let draggedBlockData = null; 
-                let originalGridItem = null; 
-
-                function onDragStartFromPool(event, block) {
-                    dragSource = 'pool';
-                    draggedBlockData = block;
-                }
-
-                function onDragStartFromGrid(event, gridItemWithOrigin) {
-                    dragSource = 'grid';
-                    draggedBlockData = { ...gridItemWithOrigin }; 
-                    originalGridItem = gridItemWithOrigin.originItem; 
-                }
-
-                function onDrop(event, targetDay, targetSlot) {
-                    if (!draggedBlockData) return;
-
-                    // 檢查1：學生防撞
-                    const classConflict = timetable.value.find(item => 
-                        item !== originalGridItem && 
-                        item.day === targetDay && 
-                        item.slot === targetSlot && 
-                        item.block.program === draggedBlockData.program && 
-                        item.block.grade === draggedBlockData.grade &&
-                        item.block.className === draggedBlockData.className
-                    );
-                    if (classConflict) {
-                        alert(`❌【班級課表衝突！】\n${draggedBlockData.grade}${draggedBlockData.className}班 該時段已有「${classConflict.block.subject}」！`);
-                        return;
-                    }
-
-                    // 檢查2：老師防撞
-                    const teacherConflict = timetable.value.find(item => 
-                        item !== originalGridItem &&
-                        item.day === targetDay && 
-                        item.slot === targetSlot && 
-                        item.block.teacher === draggedBlockData.teacher
-                    );
-                    if (teacherConflict) {
-                        alert(`❌【教師時間撞堂！】\n${draggedBlockData.teacher}老師該時段已在「${teacherConflict.block.grade}${teacherConflict.block.className}班」上堂！`);
-                        return;
-                    }
-
-                    // 檢查3：一日上限
-                    const teacherTodayLessons = timetable.value.filter(item => 
-                        item !== originalGridItem &&
-                        item.day === targetDay && 
-                        item.block.teacher === draggedBlockData.teacher
-                    ).length;
-                    if (teacherTodayLessons >= 4) {
-                        alert(`⚠️【超授課上限！】\n${draggedBlockData.teacher}老師在該工作日已排了 4 節課，達到上限！`);
-                        return;
-                    }
-
-                    // 審查通過
-                    if (dragSource === 'pool') {
-                        timetable.value.push({ day: targetDay, slot: targetSlot, block: draggedBlockData });
-                        unassignedBlocks.value = unassignedBlocks.value.filter(b => b.id !== draggedBlockData.id);
-                    } else if (dragSource === 'grid') {
-                        if (originalGridItem) {
-                            originalGridItem.day = targetDay;
-                            originalGridItem.slot = targetSlot;
-                        }
-                    }
-
-                    dragSource = null; draggedBlockData = null; originalGridItem = null;
-                }
-
-                function getCellBlocks(day, slot) {
-                    return timetable.value.filter(item => {
-                        if (item.day !== day || item.slot !== slot) return false;
-                        if (viewMode.value === 'class') {
-                            return item.block.program === viewProgram.value && 
-                                   item.block.grade === viewGrade.value &&
-                                   item.block.className === viewClass.value;
-                        } else if (viewMode.value === 'teacher') {
-                            return item.block.teacher === viewTeacher.value;
-                        }
-                        return false; // hours 模式下不顯示棋盤
-                    }).map(item => ({ ...item.block, originItem: item }));
-                }
-
-                function removeSchedule(blockWithOrigin) {
-                    const originalItem = blockWithOrigin.originItem;
-                    timetable.value = timetable.value.filter(item => item !== originalItem);
-                    unassignedBlocks.value.push(originalItem.block);
-                }
-
-                // 導出高端數據總表
-                function exportToExcel() {
-                    if (timetable.value.length === 0) { alert("當前未排定任何課程，無法導出空表格。"); return; }
-
-                    const headers = ["學位課程代碼", "學位課程", "年級班級", "節數/時間", "星期一", "星期二", "星期三", "星期四", "星期五"];
-                    const rows = [];
-                    const groupMap = {};
-
-                    timetable.value.forEach(item => {
-                        const key = `${item.block.program}##${item.block.grade}${item.block.className}班`;
-                        if (!groupMap[key]) groupMap[key] = [];
-                        groupMap[key].push(item);
-                    });
-
-                    Object.keys(groupMap).sort().forEach(key => {
-                        const [prog, clsInfo] = key.split("##");
-                        const items = groupMap[key];
-
-                        timeSlots.forEach(slot => {
-                            const rowData = { 
-                                "學位課程代碼": programCodes[prog] || "N/A",
-                                "學位課程": prog, 
-                                "年級班級": clsInfo, 
-                                "節數/時間": `第${slot.num}節 (${slot.time})` 
-                            };
-                            for (let d = 1; d <= 5; d++) {
-                                const found = items.find(i => i.day === d && i.slot === slot.num);
-                                const dayKey = ["星期一", "星期二", "星期三", "星期四", "星期五"][d - 1];
-                                rowData[dayKey] = found ? `${found.block.subject} (${found.block.teacher})` : "";
-                            }
-                            rows.push(rowData);
-                        });
-                        rows.push({});
-                    });
-
-                    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
-                    const workbook = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(workbook, worksheet, "學院總課表數據");
-
-                    worksheet["!cols"] = [
-                        { wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 18 },
-                        { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }
-                    ];
-                    XLSX.writeFile(workbook, `金融学院排课总表_${new Date().toLocaleDateString()}.xlsx`);
-                }
-
-                function exportData() {
-                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ unassignedBlocks: unassignedBlocks.value, timetable: timetable.value }));
-                    const downloadAnchor = document.createElement('a');
-                    downloadAnchor.setAttribute("href", dataStr);
-                    downloadAnchor.setAttribute("download", `金融学院排课数据备份_${new Date().toLocaleDateString()}.json`);
-                    document.body.appendChild(downloadAnchor);
-                    downloadAnchor.click();
-                    downloadAnchor.remove();
-                }
-
-                function importData(event) {
-                    const file = event.target.files[0];
-                    if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        try {
-                            const parsed = JSON.parse(e.target.result);
-                            if (parsed.unassignedBlocks && parsed.timetable) { unassignedBlocks.value = parsed.unassignedBlocks; timetable.value = parsed.timetable; alert("✅ 數據備份成功還原！"); }
-                        } catch (err) { alert("無效的備份文件。"); }
-                    };
-                    reader.readAsText(file);
-                }
-
-                function clearAllSchedules() {
-                    if (confirm("⚠️ 確定要清空已排定的所有格子並重新開始嗎？")) { unassignedBlocks.value = []; timetable.value = []; }
-                }
-
-                return {
-                    timeSlots, programs, programCodes, grades, unassignedBlocks, timetable,
-                    filterProgram, filterGrade, filterClass, viewMode, viewProgram, viewGrade, viewClass, viewTeacher, allTeachersInSystem, teacherHoursReport, hasIncompleteTeachers,
-                    showModal, formCommon, formRows, totalPreviewCount, validRowsCount, getMorandiColor,
-                    availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
-                    openModal, addFormRow, removeFormRow, applySmartInsurance, onDragStartFromPool, onDragStartFromGrid, onDrop, 
-                    getCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules
-                };
-            }
-        }).mount('#app');
-    </script>
-</body>
-</html>
+                        const
