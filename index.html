@@ -54,13 +54,15 @@
                     <span class="bg-indigo-100 text-indigo-700 text-xs px-2 py-0.5 rounded-full">{{ filteredUnassignedBlocks.length }} 塊</span>
                 </h3>
                 
-                <div class="flex-1 overflow-y-auto space-y-2 pr-1" @dragover.prevent>
+                    <div class="flex-1 overflow-y-auto space-y-2 pr-1" @dragover.prevent>
                     <div v-for="block in filteredUnassignedBlocks" 
                          :key="block.id" 
                          draggable="true"
                          @dragstart="onDragStartFromPool($event, block)"
-                         :class="['p-3 rounded-lg shadow-sm cursor-grab hover:shadow transition relative flex flex-col justify-between min-h-[95px]', getColorClass(block.program).bg, getColorClass(block.program).border]">
+                         :class="['p-3 rounded-lg shadow-sm cursor-grab hover:shadow transition relative flex flex-col justify-between min-h-[95px] group border', getColorClass(block.program).bg, getColorClass(block.program).border]">
                         
+                        <button @click.stop="deletePoolBlock(block)" class="absolute -top-1.5 -right-1.5 bg-gray-500 hover:bg-red-600 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity z-10 font-bold" title="刪除此拼圖塊">×</button>
+
                         <div>
                             <div class="flex justify-between items-start mb-1">
                                 <span :class="['text-[10px] font-bold px-1.5 py-0.5 rounded border', getColorClass(block.program).tagBg, getColorClass(block.program).tagBorder, getColorClass(block.program).tagText]">
@@ -93,7 +95,7 @@
             <div class="flex justify-between items-center mb-4 pb-4 border-b border-gray-100">
                 <div>
                     <h1 class="font-bold text-2xl text-gray-800">金融學院排課系統</h1>
-                    <p class="text-xs text-gray-500 mt-1">排課視窗：支援班級課表檢視、教師課表即時追蹤高亮</p>
+                    
                 </div>
                 
                 <div class="flex items-center space-x-2">
@@ -584,7 +586,12 @@
                     timetable.value = timetable.value.filter(item => item !== originalItem);
                     unassignedBlocks.value.push(originalItem.block);
                 }
-
+                // 新增：直接從待排課池中徹底刪除某個錯誤生成嘅拼圖塊
+                function deletePoolBlock(block) {
+                    if (confirm(`確定要徹底刪除「${block.grade}${block.className}班 - ${block.subject} (${block.teacher}老師)」這塊拼圖嗎？`)) {
+                        unassignedBlocks.value = unassignedBlocks.value.filter(b => b.id !== block.id);
+                    }
+                }
                 // 導出 Excel
                 function exportToExcel() {
                     if (timetable.value.length === 0) { alert("當前未排定任何課程。"); return; }
@@ -636,7 +643,8 @@
                     searchTeacher, allTeachersList, checkTeacherHasClassElsewhere, getTeacherElsewhereDetails, getTeacherLessonCount,
                     showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
                     openModal, addFormRow, removeFormRow, onDragStartFromPool, onDragStartFromGrid, onDrop, 
-                    getCellBlocks, getTeacherCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules
+                    getCellBlocks, getTeacherCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules,
+                    deletePoolBlock
                 };
             }
         }).mount('#app');
