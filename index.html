@@ -228,3 +228,325 @@
                                 </td>
                                 <td class="p-2">
                                     <select v-model.number="row.lessonsPerWeek" class="w-full border rounded p-1.5 bg-white">
+                                        <option :value="1">每週 1 節</option>
+                                        <option :value="2">每週 2 節</option>
+                                        <option :value="3">每週 3 節</option>
+                                        <option :value="4">每週 4 節</option>
+                                    </select>
+                                </td>
+                                <td class="p-2 pr-4 text-center">
+                                    <button @click="removeFormRow(index)" class="text-red-500 hover:text-red-700 font-bold text-base" :disabled="formRows.length === 1">×</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="flex justify-between items-center pt-2">
+                    <button @click="addFormRow" class="px-4 py-2 border border-indigo-600 text-indigo-600 rounded-lg text-xs font-semibold hover:bg-indigo-50 transition">
+                        增加一欄科目 / 老師
+                    </button>
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 max-w-md">
+                        <span class="font-bold">總生成效果預覽：</span>
+                        <span>將智能生成多個拼圖卡片。</span>
+                    </div>
+                </div>
+
+                <div class="flex space-x-3 pt-4 border-t">
+                    <button @click="showModal = false" class="flex-1 py-2 border rounded-lg text-gray-600 hover:bg-gray-100 font-semibold transition">取消</button>
+                    <button @click="generateBlocks" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition">
+                        確認一鍵生成全部拼圖
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const { createApp, ref, computed, watch } = Vue;
+
+        createApp({
+            setup() {
+                const timeSlots = [
+                    { num: 1, time: "09:00-10:15" },
+                    { num: 2, time: "10:30-11:45" },
+                    { num: 3, time: "12:00-13:15" },
+                    { num: 4, time: "13:30-14:45" },
+                    { num: 5, time: "15:00-16:15" },
+                    { num: 6, time: "16:30-17:45" },
+                    { num: 7, time: "19:00-20:15" },
+                    { num: 8, time: "20:30-21:45" }
+                ];
+
+                const programs = [
+                    "應用經濟學學士學位課程",
+                    "金融學碩士學位課程",
+                    "金融科技碩士學位課程",
+                    "金融學博士學位課程"
+                ];
+
+                // 【第一步新增】學位課程代碼對照表
+                const programCodes = {
+                    "應用經濟學學士學位課程": "BAECF",
+                    "金融學碩士學位課程": "MFICF",
+                    "金融科技碩士學位課程": "MFTBF",
+                    "金融學博士學位課程": "DFICF"
+                };
+
+                const grades = ["大一", "大二", "大三", "大四", "研一", "研二", "博一", "博二", "博三"];
+
+                // 核心響應式數據
+                const unassignedBlocks = ref(JSON.parse(localStorage.getItem('fai_unassignedBlocks')) || []);
+                const timetable = ref(JSON.parse(localStorage.getItem('fai_timetable')) || []);
+
+                // 篩選與檢視狀態
+                const filterProgram = ref("");
+                const filterGrade = ref("");
+                const filterClass = ref("");
+
+                const viewProgram = ref("應用經濟學學士學位課程");
+                const viewGrade = ref("大一");
+                const viewClass = ref("A");
+
+                const showModal = ref(false);
+                const formCommon = ref({ program: "應用經濟學學士學位課程", grade: "大一" });
+                const formRows = ref([
+                    { subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }
+                ]);
+
+                const availableClassesForView = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"];
+
+                const availableClassesInPool = computed(() => {
+                    const classes = new Set();
+                    unassignedBlocks.value.forEach(b => {
+                        if ((!filterProgram.value || b.program === filterProgram.value) && (!filterGrade.value || b.grade === filterGrade.value)) {
+                            classes.add(b.className);
+                        }
+                    });
+                    return Array.from(classes).sort();
+                });
+
+                const filteredUnassignedBlocks = computed(() => {
+                    return unassignedBlocks.value.filter(b => {
+                        const matchProg = !filterProgram.value || b.program === filterProgram.value;
+                        const matchGrade = !filterGrade.value || b.grade === filterGrade.value;
+                        const matchCls = !filterClass.value || b.className === filterClass.value;
+                        return matchProg && matchGrade && matchCls;
+                    });
+                });
+
+                watch([unassignedBlocks, timetable], () => {
+                    localStorage.setItem('fai_unassignedBlocks', JSON.stringify(unassignedBlocks.value));
+                    localStorage.setItem('fai_timetable', JSON.stringify(timetable.value));
+                }, { deep: true });
+
+                function openModal() {
+                    formCommon.value = { program: "應用經濟學學士學位課程", grade: "大一" };
+                    formRows.value = [
+                        { subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }
+                    ];
+                    showModal.value = true;
+                }
+
+                function addFormRow() {
+                    formRows.value.push({ subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 });
+                }
+
+                function removeFormRow(index) {
+                    if (formRows.value.length > 1) formRows.value.splice(index, 1);
+                }
+
+                function getRowClassesArray(row) {
+                    const start = row.classStart.trim().toUpperCase();
+                    const end = row.classEnd.trim().toUpperCase();
+                    if (!start || !end) return [];
+                    const startCode = start.charCodeAt(0);
+                    const endCode = end.charCodeAt(0);
+                    if (startCode > endCode || startCode < 65 || endCode > 90) return [];
+                    const list = [];
+                    for (let i = startCode; i <= endCode; i++) {
+                        list.push(String.fromCharCode(i));
+                    }
+                    return list;
+                }
+
+                function generateBlocks() {
+                    const timestamp = Date.now();
+                    let count = 0;
+                    formRows.value.forEach(row => {
+                        if (!row.subject.trim() || !row.teacher.trim()) return;
+                        const classes = getRowClassesArray(row);
+                        classes.forEach(cls => {
+                            for (let i = 0; i < row.lessonsPerWeek; i++) {
+                                unassignedBlocks.value.push({
+                                    id: `B_${timestamp}_${count++}`,
+                                    program: formCommon.value.program,
+                                    grade: formCommon.value.grade,
+                                    subject: row.subject.trim(),
+                                    teacher: row.teacher.trim(),
+                                    className: cls
+                                });
+                            }
+                        });
+                    });
+                    alert(`已成功生成 ${count} 個課程拼圖塊！`);
+                    showModal.value = false;
+                }
+
+                // 拖拽核心引擎
+                let dragSource = null;
+                let draggedBlockData = null;
+                let originalGridItem = null;
+
+                function onDragStartFromPool(event, block) {
+                    dragSource = 'pool';
+                    draggedBlockData = block;
+                }
+
+                function onDragStartFromGrid(event, gridItemWithOrigin) {
+                    dragSource = 'grid';
+                    draggedBlockData = { ...gridItemWithOrigin };
+                    originalGridItem = gridItemWithOrigin.originItem;
+                }
+
+                function onDrop(event, targetDay, targetSlot) {
+                    if (!draggedBlockData) return;
+
+                    // 學生課表防撞判定
+                    const classConflict = timetable.value.find(item => 
+                        item !== originalGridItem && 
+                        item.day === targetDay && 
+                        item.slot === targetSlot && 
+                        item.block.program === draggedBlockData.program && 
+                        item.block.grade === draggedBlockData.grade &&
+                        item.block.className === draggedBlockData.className
+                    );
+                    if (classConflict) {
+                        alert(`❌【班級課表衝突！】\n${draggedBlockData.grade}${draggedBlockData.className}班 該時段已有「${classConflict.block.subject}」！`);
+                        return;
+                    }
+
+                    // 老師課表防撞判定
+                    const teacherConflict = timetable.value.find(item => 
+                        item !== originalGridItem &&
+                        item.day === targetDay && 
+                        item.slot === targetSlot && 
+                        item.block.teacher === draggedBlockData.teacher
+                    );
+                    if (teacherConflict) {
+                        alert(`❌【教師時間撞堂！】\n${draggedBlockData.teacher}老師該時段已在「${teacherConflict.block.grade}${teacherConflict.block.className}班」上堂！`);
+                        return;
+                    }
+
+                    if (dragSource === 'pool') {
+                        timetable.value.push({ day: targetDay, slot: targetSlot, block: draggedBlockData });
+                        unassignedBlocks.value = unassignedBlocks.value.filter(b => b.id !== draggedBlockData.id);
+                    } else if (dragSource === 'grid') {
+                        if (originalGridItem) {
+                            originalGridItem.day = targetDay;
+                            originalGridItem.slot = targetSlot;
+                        }
+                    }
+
+                    dragSource = null; draggedBlockData = null; originalGridItem = null;
+                }
+
+                function getCellBlocks(day, slot) {
+                    return timetable.value.filter(item => {
+                        return item.day === day && 
+                               item.slot === slot &&
+                               item.block.program === viewProgram.value && 
+                               item.block.grade === viewGrade.value &&
+                               item.block.className === viewClass.value;
+                    }).map(item => ({ ...item.block, originItem: item }));
+                }
+
+                function removeSchedule(blockWithOrigin) {
+                    const originalItem = blockWithOrigin.originItem;
+                    timetable.value = timetable.value.filter(item => item !== originalItem);
+                    unassignedBlocks.value.push(originalItem.block);
+                }
+
+                function exportToExcel() {
+                    if (timetable.value.length === 0) { alert("當前未排定任何課程。"); return; }
+                    const headers = ["學位課程代碼", "學位課程", "年級班級", "節數/時間", "星期一", "星期二", "星期三", "星期四", "星期五"];
+                    const rows = [];
+                    const groupMap = {};
+
+                    timetable.value.forEach(item => {
+                        const key = `${item.block.program}##${item.block.grade}${item.block.className}班`;
+                        if (!groupMap[key]) groupMap[key] = [];
+                        groupMap[key].push(item);
+                    });
+
+                    Object.keys(groupMap).sort().forEach(key => {
+                        const [prog, clsInfo] = key.split("##");
+                        const items = groupMap[key];
+
+                        timeSlots.forEach(slot => {
+                            const rowData = { 
+                                "學位課程代碼": programCodes[prog] || "N/A",
+                                "學位課程": prog, 
+                                "年級班級": clsInfo, 
+                                "節數/時間": `第${slot.num}節 (${slot.time})` 
+                            };
+                            for (let d = 1; d <= 5; d++) {
+                                const found = items.find(i => i.day === d && i.slot === slot.num);
+                                const dayKey = ["星期一", "星期二", "星期三", "星期四", "星期五"][d - 1];
+                                rowData[dayKey] = found ? `${found.block.subject} (${found.block.teacher})` : "";
+                            }
+                            rows.push(rowData);
+                        });
+                        rows.push({});
+                    });
+
+                    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "學院總課表數據");
+                    XLSX.writeFile(workbook, `金融学院排课总表.xlsx`);
+                }
+
+                function exportData() {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ unassignedBlocks: unassignedBlocks.value, timetable: timetable.value }));
+                    const downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute("href", dataStr);
+                    downloadAnchor.setAttribute("download", `排课数据备份.json`);
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                }
+
+                function importData(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const parsed = JSON.parse(e.target.result);
+                            if (parsed.unassignedBlocks && parsed.timetable) {
+                                unassignedBlocks.value = parsed.unassignedBlocks;
+                                timetable.value = parsed.timetable;
+                                alert("數據還原成功！");
+                            }
+                        } catch (err) { alert("無效的文件。"); }
+                    };
+                    reader.readAsText(file);
+                }
+
+                function clearAllSchedules() {
+                    if (confirm("確定要清空嗎？")) { unassignedBlocks.value = []; timetable.value = []; }
+                }
+
+                return {
+                    timeSlots, programs, programCodes, grades, unassignedBlocks, timetable,
+                    filterProgram, filterGrade, filterClass, viewProgram, viewGrade, viewClass,
+                    showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
+                    openModal, addFormRow, removeFormRow, onDragStartFromPool, onDragStartFromGrid, onDrop, 
+                    getCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
