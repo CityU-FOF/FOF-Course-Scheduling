@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>金融學院排課系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans antialiased text-gray-800">
 
@@ -132,7 +134,16 @@
                         </select>
                     </div>
                 </div>
-
+<div class="mt-3 pt-2 border-t border-indigo-100 flex items-center space-x-2 bg-amber-50/60 p-2 rounded-lg text-xs w-full">
+    <span class="font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded shrink-0">💡 教師時間表</span>
+    <select v-model="searchTeacher" class="border border-amber-300 rounded p-1 bg-white focus:outline-amber-500 font-semibold text-amber-900 w-44">
+        <option value="">-- 選擇老師 --</option>
+        <option v-for="t in allTeachersList" :key="t" :value="t">{{ t }} 老師</option>
+    </select>
+    <span v-if="searchTeacher" class="text-amber-800 truncate">
+        已高亮 <span class="underline font-bold">{{ searchTeacher }}</span>（共 {{ getTeacherLessonCount(searchTeacher) }} 節）
+    </span>
+</div>
                 <div class="pt-2 border-t border-indigo-100/70 flex items-center justify-between">
                     <div class="flex items-center space-x-2 flex-1">
                         <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-1 rounded">💡 教師時間表快速追蹤</span>
@@ -581,7 +592,48 @@
                 }
 
                 function clearAllSchedules() { if (confirm("確定要清空嗎？")) { unassignedBlocks.value = []; timetable.value = []; } }
+// 【新增/恢復】教師時間表後台核心邏輯
+const searchTeacher = ref("");
 
+// 動態獲取全學院所有有任務的老師清單
+const allTeachersList = computed(() => {
+    const teachers = new Set();
+    unassignedBlocks.value.forEach(b => { if(b.teacher) teachers.add(b.teacher.trim()) });
+    timetable.value.forEach(t => { if(t.block && t.block.teacher) teachers.add(t.block.teacher.trim()) });
+    return Array.from(teachers).sort();
+});
+
+function getTeacherLessonCount(teacherName) {
+    return timetable.value.filter(item => item.block.teacher === teacherName).length;
+}
+
+// 判斷某老師是否在其他班級有課（時間表背影佔位用）
+function checkTeacherHasClassElsewhere(day, slot) {
+    if (!searchTeacher.value) return false;
+    return timetable.value.some(item => 
+        item.day === day && 
+        item.slot === slot && 
+        item.block.teacher === searchTeacher.value
+    );
+}
+
+// 獲取該老師在其他班上課的具體詳情
+function getTeacherElsewhereDetails(day, slot) {
+    const found = timetable.value.find(item => 
+        item.day === day && 
+        item.slot === slot && 
+        item.block.teacher === searchTeacher.value
+    );
+    if (!found) return "";
+    return `${found.block.subject} (${found.block.grade}${found.block.className}班)`;
+}
+
+                // 請確保 return 裡面有這幾項
+return {
+    // ... 原本有的東西保留
+    searchTeacher, allTeachersList, getTeacherLessonCount, checkTeacherHasClassElsewhere, getTeacherElsewhereDetails
+}
+                
                 return {
                     timeSlots, programs, programCodes, getProgramCode, getColorClass, grades, unassignedBlocks, timetable,
                     filterProgram, filterGrade, filterClass, viewProgram, viewGrade, viewClass,
