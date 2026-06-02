@@ -114,7 +114,16 @@
             </div>
 
             <!-- 上方篩選與教師追蹤欄 -->
-            <div class="bg-indigo-50/50 p-4 rounded-xl mb-4 space-y-3 border border-indigo-100">
+<div class="flex border-b border-gray-200 mb-4 shrink-0">
+                <button @click="currentTab = 'class'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'class' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-gray-700']">
+                    📅 按班級時間表檢視
+                </button>
+                <button @click="currentTab = 'teacher'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'teacher' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-gray-700']">
+                    👨‍🏫 按老師時間表檢視
+                </button>
+            </div>
+
+            <div v-if="currentTab === 'class'" class="bg-indigo-50/50 p-4 rounded-xl mb-4 space-y-3 border border-indigo-100 shrink-0">
                 <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2 flex-1">
                         <span class="text-sm font-semibold text-gray-700 shrink-0">1. 選擇檢視課程：</span>
@@ -136,7 +145,6 @@
                     </div>
                 </div>
 
-                <!-- 精簡整合後的教師時間表快速追蹤欄 -->
                 <div class="pt-2 border-t border-indigo-100/70 flex items-center justify-between bg-amber-50/60 p-2 rounded-lg">
                     <div class="flex items-center space-x-2 flex-1">
                         <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-1 rounded">💡 教師時間表快速追蹤</span>
@@ -145,14 +153,27 @@
                             <option v-for="t in allTeachersList" :key="t" :value="t">{{ t }} 老師</option>
                         </select>
                         <span v-if="searchTeacher" class="text-xs text-amber-800 font-medium truncate">
-                            正在棋盤高亮顯示 <span class="underline font-bold">{{ searchTeacher }}</span> 老師的所有排堂（共 {{ getTeacherLessonCount(searchTeacher) }} 節）
+                            顯示 <span class="underline font-bold">{{ searchTeacher }}</span> 老師的所有排堂（共 {{ getTeacherLessonCount(searchTeacher) }} 節）
                         </span>
                     </div>
                     <button v-if="searchTeacher" @click="searchTeacher = ''" class="text-xs text-gray-500 hover:text-gray-700 underline shrink-0">清除追蹤</button>
                 </div>
             </div>
 
-            <!-- 大棋盤課表 -->
+            <div v-if="currentTab === 'teacher'" class="bg-amber-50/50 p-4 rounded-xl mb-4 border border-amber-200 shrink-0 flex items-center justify-between">
+                <div class="flex items-center space-x-3 flex-1">
+                    <span class="text-sm font-bold text-amber-800 bg-amber-100 px-3 py-1.5 rounded-lg">👨‍🏫 選擇查看教師：</span>
+                    <select v-model="searchTeacher" class="border border-amber-300 rounded-lg p-2 text-sm bg-white focus:outline-amber-500 font-bold text-amber-900 w-72">
+                        <option value="">-- 請選擇一位老師查看其個人專屬總時間表 --</option>
+                        <option v-for="t in allTeachersList" :key="t" :value="t">{{ t }} 老師</option>
+                    </select>
+                    <span v-if="searchTeacher" class="text-sm text-amber-900 font-semibold ml-2">
+                        本學期該教師總課時累計：<span class="text-indigo-600 font-extrabold text-base underline">{{ getTeacherLessonCount(searchTeacher) }}</span> 節
+                    </span>
+                </div>
+                <p class="text-xs text-amber-700/80 max-w-sm text-right">此視窗為純課表檢視模式，可總覽該教師在各個課程、年級和班級的所有排堂。</p>
+            </div>
+
             <div class="flex-1 overflow-auto">
                 <div class="grid grid-cols-6 gap-2 h-full min-h-[620px]">
                     <div class="bg-gray-100 p-3 text-center font-bold text-gray-500 rounded-lg flex items-center justify-center border text-xs">節數 / 時間</div>
@@ -166,54 +187,63 @@
                             <span class="text-[10px] text-indigo-600 mt-1 font-mono bg-white px-1 py-0.5 rounded border">{{ slot.time }}</span>
                         </div>
 
-                        <div v-for="day in 5" 
-                             :key="day" 
-                             class="border border-dashed border-gray-300 rounded-xl p-1 bg-gray-50/20 hover:bg-indigo-50/40 transition-all flex flex-col justify-start min-h-[95px]"
-                             @dragover.prevent
-                             @drop="onDrop($event, day, slot.num)">
+                        <div v-for="day in 5" :key="day" class="border border-dashed border-gray-300 rounded-xl p-1 bg-gray-50/20 hover:bg-indigo-50/40 transition-all flex flex-col justify-start min-h-[95px]" @dragover.prevent @drop="currentTab === 'class' ? onDrop($event, day, slot.num) : null">
                             
-                            <!-- 格子內已被排定的課程卡片 -->
-                            <div v-for="item in getCellBlocks(day, slot.num)" 
-                                 :key="item.id" 
-                                 draggable="true"
-                                 @dragstart="onDragStartFromGrid($event, item)"
-                                 :class="['p-2 rounded-lg shadow-sm h-full w-full flex flex-col justify-between relative group cursor-grab hover:shadow-md transition-all border min-h-[85px]', 
-                                          searchTeacher && item.teacher === searchTeacher ? 'ring-4 ring-amber-400 border-amber-500 bg-amber-50/90' : getColorClass(item.program).bg, 
-                                          getColorClass(item.program).border]">
-                                
-                                <div>
-                                    <div class="flex justify-between items-center mb-1">
-                                        <span :class="['text-[9px] font-bold px-1 py-0.2 rounded', getColorClass(item.program).tagBg, getColorClass(item.program).tagText]">
-                                            {{ item.grade }}{{ item.className }}班
-                                        </span>
-                                        <span :class="['text-[9px] font-mono font-bold px-1.5 py-0.2 rounded shadow-xs text-white', getColorClass(item.program).badgeBg]">
-                                            {{ getProgramCode(item.program) }}
-                                        </span>
+                            <template v-if="currentTab === 'class'">
+                                <div v-for="item in getCellBlocks(day, slot.num)" :key="item.id" draggable="true" @dragstart="onDragStartFromGrid($event, item)" :class="['p-2 rounded-lg shadow-sm h-full w-full flex flex-col justify-between relative group cursor-grab hover:shadow-md transition-all border min-h-[85px]', searchTeacher && item.teacher === searchTeacher ? 'ring-4 ring-amber-400 border-amber-500 bg-amber-50/90' : getColorClass(item.program).bg, getColorClass(item.program).border]">
+                                    <div>
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span :class="['text-[9px] font-bold px-1 py-0.2 rounded', getColorClass(item.program).tagBg, getColorClass(item.program).tagText]">
+                                                {{ item.grade }}{{ item.className }}班
+                                            </span>
+                                            <span :class="['text-[9px] font-mono font-bold px-1.5 py-0.2 rounded shadow-xs text-white', getColorClass(item.program).badgeBg]">
+                                                {{ getProgramCode(item.program) }}
+                                            </span>
+                                        </div>
+                                        <div :class="['font-bold text-xs leading-tight mb-1 truncate-2-lines', getColorClass(item.program).text]">
+                                            {{ item.subject }}
+                                        </div>
                                     </div>
-                                    <div :class="['font-bold text-xs leading-tight mb-1 truncate-2-lines', getColorClass(item.program).text]">
-                                        {{ item.subject }}
+                                    <div :class="['text-right text-[11px] font-bold mt-auto pt-1', getColorClass(item.program).teacherText]">
+                                        {{ item.teacher }}
+                                    </div>
+                                    <button @click="removeSchedule(item)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center shadow hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity z-10">×</button>
+                                </div>
+                                <div v-if="searchTeacher && getCellBlocks(day, slot.num).length === 0 && checkTeacherHasClassElsewhere(day, slot.num)" class="p-2 border border-dashed border-amber-300 bg-amber-50/20 rounded-lg text-center flex flex-col justify-center items-center h-full min-h-[85px] w-full">
+                                    <span class="text-[10px] font-bold text-amber-700">🔒 {{ searchTeacher }} 老師有堂</span>
+                                    <span class="text-[9px] text-gray-500 scale-90 truncate w-full text-center">
+                                        {{ getTeacherElsewhereDetails(day, slot.num) }}
+                                    </span>
+                                </div>
+                            </template>
+
+                            <template v-else-if="currentTab === 'teacher'">
+                                <div v-for="item in getTeacherCellBlocks(day, slot.num)" :key="item.id" :class="['p-2 rounded-lg shadow-sm h-full w-full flex flex-col justify-between border min-h-[85px] bg-amber-50/90 border-amber-300 ring-2 ring-amber-200']">
+                                    <div>
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="text-[9px] font-bold px-1 py-0.2 rounded bg-indigo-600 text-white">
+                                                {{ item.block.grade }}{{ item.block.className }}班
+                                            </span>
+                                            <span class="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-amber-600 text-white shadow-xs">
+                                                {{ getProgramCode(item.block.program) }}
+                                            </span>
+                                        </div>
+                                        <div class="font-bold text-xs leading-tight mb-1 text-amber-950 truncate-2-lines">
+                                            {{ item.block.subject }}
+                                        </div>
+                                    </div>
+                                    <div class="text-[9px] text-gray-500 truncate mt-1 border-t pt-1 border-amber-200">
+                                        {{ item.block.program.replace('學位課程','') }}
                                     </div>
                                 </div>
-                                
-                                <div :class="['text-right text-[11px] font-bold mt-auto pt-1', getColorClass(item.program).teacherText]">
-                                    {{ item.teacher }}
-                                </div>
+                                <div v-if="!searchTeacher" class="text-center text-gray-300 text-[10px] my-auto">未選教師</div>
+                                <div v-else-if="getTeacherCellBlocks(day, slot.num).length === 0" class="text-center text-emerald-600 font-medium text-[10px] my-auto bg-emerald-50/50 py-1 rounded border border-dashed border-emerald-200">無排堂 (空檔)</div>
+                            </template>
 
-                                <button @click="removeSchedule(item)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center shadow hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    ×
-                                </button>
-                            </div>
-
-                            <!-- 老師時間表佔位背影：若老師在別處有課，在此顯示灰色佔位 -->
-                            <div v-if="searchTeacher && getCellBlocks(day, slot.num).length === 0 && checkTeacherHasClassElsewhere(day, slot.num)"
-                                 class="p-2 border border-dashed border-amber-300 bg-amber-50/20 rounded-lg text-center flex flex-col justify-center items-center h-full min-h-[85px] w-full">
-                                <span class="text-[10px] font-bold text-amber-700">🔒 {{ searchTeacher }} 老師有堂</span>
-                                <span class="text-[9px] text-gray-500 scale-90 truncate w-full text-center">
-                                    {{ getTeacherElsewhereDetails(day, slot.num) }}
-                                </span>
-                            </div>
                         </div>
                     </template>
+                </div>
+            </div>
                 </div>
             </div>
         </div>
@@ -395,6 +425,7 @@
                 const viewProgram = ref("應用經濟學學士學位課程");
                 const viewGrade = ref("大一");
                 const viewClass = ref("A");
+                const currentTab = ref("class"); // 控制目前處於 'class' (班級) 還是 'teacher' (老師) 視窗
                 const searchTeacher = ref("");
 
                 // 動態獲取全學院所有有任務的老師清單 (已修正語法錯誤)
@@ -536,7 +567,15 @@
                                item.block.program === viewProgram.value && item.block.grade === viewGrade.value && item.block.className === viewClass.value;
                     }).map(item => ({ ...item.block, originItem: item }));
                 }
-
+// 🆕 獲取指定老師在特定星期和節數的所有排堂資料（供老師時間表視窗渲染）
+function getTeacherTeacherCellBlocks(day, slot) {
+    if (!searchTeacher.value) return [];
+    return timetable.value.filter(item => 
+        item.day === day && 
+        item.slot === slot && 
+        item.block.teacher.trim() === searchTeacher.value.trim()
+    );
+}
                 function removeSchedule(blockWithOrigin) {
                     const originalItem = blockWithOrigin.originItem;
                     timetable.value = timetable.value.filter(item => item !== originalItem);
@@ -593,7 +632,9 @@
                     searchTeacher, allTeachersList, checkTeacherHasClassElsewhere, getTeacherElsewhereDetails, getTeacherLessonCount,
                     showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
                     openModal, addFormRow, removeFormRow, onDragStartFromPool, onDragStartFromGrid, onDrop, 
-                    getCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules
+                    getCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules,
+                    currentTab,
+    getTeacherCellBlocks: getTeacherTeacherCellBlocks, // 映射到 HTML
                 };
             }
         }).mount('#app');
