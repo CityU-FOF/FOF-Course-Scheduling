@@ -1,19 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>金融學院排課系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans antialiased text-gray-800">
 
     <div id="app" class="flex h-screen overflow-hidden p-4">
         
+        <!-- 左側邊欄：待排課池 -->
         <div class="w-80 bg-white p-4 rounded-xl shadow-lg mr-4 flex flex-col border border-gray-200 overflow-hidden">
             
             <div class="mb-4 pb-4 border-b border-gray-200">
@@ -88,6 +87,7 @@
             </div>
         </div>
 
+        <!-- 右側：主工作區 -->
         <div class="flex-1 bg-white p-5 rounded-xl shadow-lg flex flex-col border border-gray-200 overflow-hidden">
             
             <div class="flex justify-between items-center mb-4 pb-4 border-b border-gray-100">
@@ -113,6 +113,7 @@
                 </div>
             </div>
 
+            <!-- 上方篩選與教師追蹤欄 -->
             <div class="bg-indigo-50/50 p-4 rounded-xl mb-4 space-y-3 border border-indigo-100">
                 <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2 flex-1">
@@ -134,31 +135,24 @@
                         </select>
                     </div>
                 </div>
-<div class="mt-3 pt-2 border-t border-indigo-100 flex items-center space-x-2 bg-amber-50/60 p-2 rounded-lg text-xs w-full">
-    <span class="font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded shrink-0">💡 教師時間表</span>
-    <select v-model="searchTeacher" class="border border-amber-300 rounded p-1 bg-white focus:outline-amber-500 font-semibold text-amber-900 w-44">
-        <option value="">-- 選擇老師 --</option>
-        <option v-for="t in allTeachersList" :key="t" :value="t">{{ t }} 老師</option>
-    </select>
-    <span v-if="searchTeacher" class="text-amber-800 truncate">
-        已高亮 <span class="underline font-bold">{{ searchTeacher }}</span>（共 {{ getTeacherLessonCount(searchTeacher) }} 節）
-    </span>
-</div>
-                <div class="pt-2 border-t border-indigo-100/70 flex items-center justify-between">
+
+                <!-- 精簡整合後的教師時間表快速追蹤欄 -->
+                <div class="pt-2 border-t border-indigo-100/70 flex items-center justify-between bg-amber-50/60 p-2 rounded-lg">
                     <div class="flex items-center space-x-2 flex-1">
                         <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-1 rounded">💡 教師時間表快速追蹤</span>
                         <select v-model="searchTeacher" class="border border-amber-300 rounded-lg p-1.5 text-xs bg-white focus:outline-amber-500 font-semibold text-amber-900 w-64">
                             <option value="">-- 點擊選擇老師，查看其整週時間表 --</option>
                             <option v-for="t in allTeachersList" :key="t" :value="t">{{ t }} 老師</option>
                         </select>
-                        <span v-if="searchTeacher" class="text-xs text-amber-800 font-medium">
+                        <span v-if="searchTeacher" class="text-xs text-amber-800 font-medium truncate">
                             正在棋盤高亮顯示 <span class="underline font-bold">{{ searchTeacher }}</span> 老師的所有排堂（共 {{ getTeacherLessonCount(searchTeacher) }} 節）
                         </span>
                     </div>
-                    <button v-if="searchTeacher" @click="searchTeacher = ''" class="text-xs text-gray-500 hover:text-gray-700 underline">清除追蹤</button>
+                    <button v-if="searchTeacher" @click="searchTeacher = ''" class="text-xs text-gray-500 hover:text-gray-700 underline shrink-0">清除追蹤</button>
                 </div>
             </div>
 
+            <!-- 大棋盤課表 -->
             <div class="flex-1 overflow-auto">
                 <div class="grid grid-cols-6 gap-2 h-full min-h-[620px]">
                     <div class="bg-gray-100 p-3 text-center font-bold text-gray-500 rounded-lg flex items-center justify-center border text-xs">節數 / 時間</div>
@@ -172,58 +166,59 @@
                             <span class="text-[10px] text-indigo-600 mt-1 font-mono bg-white px-1 py-0.5 rounded border">{{ slot.time }}</span>
                         </div>
 
-                       <div v-for="day in 5" 
-     :key="day" 
-     class="border border-dashed border-gray-300 rounded-xl p-1 bg-gray-50/20 hover:bg-indigo-50/40 transition-all flex flex-col justify-start min-h-[95px]"
-     @dragover.prevent
-     @drop="onDrop($event, day, slot.num)">
-    
-    <div v-for="item in getCellBlocks(day, slot.num)" 
-         :key="item.id" 
-         draggable="true"
-         @dragstart="onDragStartFromGrid($event, item)"
-         :class="['p-2 rounded-lg shadow-sm h-full w-full flex flex-col justify-between relative group cursor-grab hover:shadow-md transition-all border min-h-[85px]', 
-                  searchTeacher && item.teacher === searchTeacher ? 'ring-4 ring-amber-400 border-amber-500 bg-amber-50/90' : getColorClass(item.program).bg, 
-                  getColorClass(item.program).border]">
-        
-        <div>
-            <div class="flex justify-between items-center mb-1">
-                <span :class="['text-[9px] font-bold px-1 py-0.2 rounded', getColorClass(item.program).tagBg, getColorClass(item.program).tagText]">
-                    {{ item.grade }}{{ item.className }}班
-                </span>
-                <span :class="['text-[9px] font-mono font-bold px-1.5 py-0.2 rounded shadow-xs text-white', getColorClass(item.program).badgeBg]">
-                    {{ getProgramCode(item.program) }}
-                </span>
-            </div>
-            <div :class="['font-bold text-xs leading-tight mb-1 truncate-2-lines', getColorClass(item.program).text]">
-                {{ item.subject }}
-            </div>
-        </div>
-        
-        <div :class="['text-right text-[11px] font-bold mt-auto pt-1', getColorClass(item.program).teacherText]">
-            {{ item.teacher }}
-        </div>
+                        <div v-for="day in 5" 
+                             :key="day" 
+                             class="border border-dashed border-gray-300 rounded-xl p-1 bg-gray-50/20 hover:bg-indigo-50/40 transition-all flex flex-col justify-start min-h-[95px]"
+                             @dragover.prevent
+                             @drop="onDrop($event, day, slot.num)">
+                            
+                            <!-- 格子內已被排定的課程卡片 -->
+                            <div v-for="item in getCellBlocks(day, slot.num)" 
+                                 :key="item.id" 
+                                 draggable="true"
+                                 @dragstart="onDragStartFromGrid($event, item)"
+                                 :class="['p-2 rounded-lg shadow-sm h-full w-full flex flex-col justify-between relative group cursor-grab hover:shadow-md transition-all border min-h-[85px]', 
+                                          searchTeacher && item.teacher === searchTeacher ? 'ring-4 ring-amber-400 border-amber-500 bg-amber-50/90' : getColorClass(item.program).bg, 
+                                          getColorClass(item.program).border]">
+                                
+                                <div>
+                                    <div class="flex justify-between items-center mb-1">
+                                        <span :class="['text-[9px] font-bold px-1 py-0.2 rounded', getColorClass(item.program).tagBg, getColorClass(item.program).tagText]">
+                                            {{ item.grade }}{{ item.className }}班
+                                        </span>
+                                        <span :class="['text-[9px] font-mono font-bold px-1.5 py-0.2 rounded shadow-xs text-white', getColorClass(item.program).badgeBg]">
+                                            {{ getProgramCode(item.program) }}
+                                        </span>
+                                    </div>
+                                    <div :class="['font-bold text-xs leading-tight mb-1 truncate-2-lines', getColorClass(item.program).text]">
+                                        {{ item.subject }}
+                                    </div>
+                                </div>
+                                
+                                <div :class="['text-right text-[11px] font-bold mt-auto pt-1', getColorClass(item.program).teacherText]">
+                                    {{ item.teacher }}
+                                </div>
 
-        <button @click="removeSchedule(item)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center shadow hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-            ×
-        </button>
-    </div>
+                                <button @click="removeSchedule(item)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center shadow hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    ×
+                                </button>
+                            </div>
 
-    <div v-if="searchTeacher && getCellBlocks(day, slot.num).length === 0 && checkTeacherHasClassElsewhere(day, slot.num)"
-         class="p-2 border border-dashed border-amber-300 bg-amber-50/20 rounded-lg text-center flex flex-col justify-center items-center h-full min-h-[85px]">
-        <span class="text-[10px] font-bold text-amber-700">🔒 {{ searchTeacher }} 老師有堂</span>
-        <span class="text-[9px] text-gray-500 scale-90">
-            {{ getTeacherElsewhereDetails(day, slot.num) }}
-        </span>
-    </div>
-
-</div>
+                            <!-- 老師時間表佔位背影：若老師在別處有課，在此顯示灰色佔位 -->
+                            <div v-if="searchTeacher && getCellBlocks(day, slot.num).length === 0 && checkTeacherHasClassElsewhere(day, slot.num)"
+                                 class="p-2 border border-dashed border-amber-300 bg-amber-50/20 rounded-lg text-center flex flex-col justify-center items-center h-full min-h-[85px] w-full">
+                                <span class="text-[10px] font-bold text-amber-700">🔒 {{ searchTeacher }} 老師有堂</span>
+                                <span class="text-[9px] text-gray-500 scale-90 truncate w-full text-center">
+                                    {{ getTeacherElsewhereDetails(day, slot.num) }}
+                                </span>
+                            </div>
+                        </div>
                     </template>
                 </div>
             </div>
-
         </div>
 
+        <!-- 批量自動生成彈窗 -->
         <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 space-y-4 border flex flex-col max-h-[90vh]">
                 <div class="flex justify-between items-center border-b pb-2">
@@ -392,7 +387,7 @@
                 const unassignedBlocks = ref(JSON.parse(localStorage.getItem('fai_unassignedBlocks')) || []);
                 const timetable = ref(JSON.parse(localStorage.getItem('fai_timetable')) || []);
 
-                // 篩選檢視
+                // 篩選與追蹤狀態
                 const filterProgram = ref("");
                 const filterGrade = ref("");
                 const filterClass = ref("");
@@ -400,15 +395,13 @@
                 const viewProgram = ref("應用經濟學學士學位課程");
                 const viewGrade = ref("大一");
                 const viewClass = ref("A");
-
-                // 【新增】老師查詢選單狀態
                 const searchTeacher = ref("");
 
-                // 動態獲取全學院所有已登記的老師清單
+                // 動態獲取全學院所有有任務的老師清單 (已修正語法錯誤)
                 const allTeachersList = computed(() => {
                     const teachers = new Set();
-                    unassignedBlocks.value.forEach(b => if(b.teacher) teachers.add(b.teacher.trim()));
-                    timetable.value.forEach(t => if(t.block && t.block.teacher) teachers.add(t.block.teacher.trim()));
+                    unassignedBlocks.value.forEach(b => { if(b.teacher) teachers.add(b.teacher.trim()); });
+                    timetable.value.forEach(t => { if(t.block && t.block.teacher) teachers.add(t.block.teacher.trim()); });
                     return Array.from(teachers).sort();
                 });
 
@@ -444,7 +437,7 @@
                     localStorage.setItem('fai_timetable', JSON.stringify(timetable.value));
                 }, { deep: true });
 
-                // 判斷某老師是否在其他班級有課（時間表檢視專用）
+                // 判斷某老師是否在其他班級有課
                 function checkTeacherHasClassElsewhere(day, slot) {
                     if (!searchTeacher.value) return false;
                     return timetable.value.some(item => 
@@ -518,6 +511,8 @@
                     dragSource = 'grid'; draggedBlockData = { ...gridItemWithOrigin }; originalGridItem = gridItemWithOrigin.originItem;
                 }
 
+                style="display:none"
+
                 function onDrop(event, targetDay, targetSlot) {
                     if (!draggedBlockData) return;
                     const classConflict = timetable.value.find(item => item !== originalGridItem && item.day === targetDay && item.slot === targetSlot && item.block.program === draggedBlockData.program && item.block.grade === draggedBlockData.grade && item.block.className === draggedBlockData.className);
@@ -535,7 +530,6 @@
                     dragSource = null; draggedBlockData = null; originalGridItem = null;
                 }
 
-                // 獲取當前選定班級在棋盤格子的卡片
                 function getCellBlocks(day, slot) {
                     return timetable.value.filter(item => {
                         return item.day === day && item.slot === slot &&
@@ -592,48 +586,7 @@
                 }
 
                 function clearAllSchedules() { if (confirm("確定要清空嗎？")) { unassignedBlocks.value = []; timetable.value = []; } }
-// 【新增/恢復】教師時間表後台核心邏輯
-const searchTeacher = ref("");
 
-// 動態獲取全學院所有有任務的老師清單
-const allTeachersList = computed(() => {
-    const teachers = new Set();
-    unassignedBlocks.value.forEach(b => { if(b.teacher) teachers.add(b.teacher.trim()) });
-    timetable.value.forEach(t => { if(t.block && t.block.teacher) teachers.add(t.block.teacher.trim()) });
-    return Array.from(teachers).sort();
-});
-
-function getTeacherLessonCount(teacherName) {
-    return timetable.value.filter(item => item.block.teacher === teacherName).length;
-}
-
-// 判斷某老師是否在其他班級有課（時間表背影佔位用）
-function checkTeacherHasClassElsewhere(day, slot) {
-    if (!searchTeacher.value) return false;
-    return timetable.value.some(item => 
-        item.day === day && 
-        item.slot === slot && 
-        item.block.teacher === searchTeacher.value
-    );
-}
-
-// 獲取該老師在其他班上課的具體詳情
-function getTeacherElsewhereDetails(day, slot) {
-    const found = timetable.value.find(item => 
-        item.day === day && 
-        item.slot === slot && 
-        item.block.teacher === searchTeacher.value
-    );
-    if (!found) return "";
-    return `${found.block.subject} (${found.block.grade}${found.block.className}班)`;
-}
-
-                // 請確保 return 裡面有這幾項
-return {
-    // ... 原本有的東西保留
-    searchTeacher, allTeachersList, getTeacherLessonCount, checkTeacherHasClassElsewhere, getTeacherElsewhereDetails
-}
-                
                 return {
                     timeSlots, programs, programCodes, getProgramCode, getColorClass, grades, unassignedBlocks, timetable,
                     filterProgram, filterGrade, filterClass, viewProgram, viewGrade, viewClass,
