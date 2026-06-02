@@ -313,7 +313,8 @@
                                     <div :class="['text-right text-[11px] font-bold mt-auto pt-1', getColorClass(item.program).teacherText]">
                                         {{ item.teacher }}
                                     </div>
-                                    <button @click="removeSchedule(item)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center shadow hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity z-10">×</button>
+                                  <!-- 修改：讓刪除按鈕常駐顯示，優化手機端觸控點擊體驗 -->
+<button @click="removeSchedule(item)" class="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center shadow-md transition-transform active:scale-95 z-10 font-bold">×</button>
                                 </div>
                                 <div v-if="searchTeacher && getCellBlocks(day, slot.num).length === 0 && checkTeacherHasClassElsewhere(day, slot.num)" class="p-2 border border-dashed border-amber-300 bg-amber-50/20 rounded-lg text-center flex flex-col justify-center items-center h-full min-h-[85px] w-full">
                                     <span class="text-[10px] font-bold text-amber-700">🔒 {{ searchTeacher }} 老師有堂</span>
