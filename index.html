@@ -113,8 +113,8 @@
                 </div>
             </div>
 
-            <!-- 上方篩選與教師追蹤欄 -->
-<div class="flex border-b border-gray-200 mb-4 shrink-0">
+            <!-- 視窗切換 TAB 按鈕 -->
+            <div class="flex border-b border-gray-200 mb-4 shrink-0">
                 <button @click="currentTab = 'class'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'class' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-gray-700']">
                     📅 按班級時間表檢視
                 </button>
@@ -123,6 +123,7 @@
                 </button>
             </div>
 
+            <!-- TAB 1：班級課表檢視下的篩選欄 -->
             <div v-if="currentTab === 'class'" class="bg-indigo-50/50 p-4 rounded-xl mb-4 space-y-3 border border-indigo-100 shrink-0">
                 <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2 flex-1">
@@ -160,6 +161,7 @@
                 </div>
             </div>
 
+            <!-- TAB 2：老師課表檢視下的篩選欄 -->
             <div v-if="currentTab === 'teacher'" class="bg-amber-50/50 p-4 rounded-xl mb-4 border border-amber-200 shrink-0 flex items-center justify-between">
                 <div class="flex items-center space-x-3 flex-1">
                     <span class="text-sm font-bold text-amber-800 bg-amber-100 px-3 py-1.5 rounded-lg">👨‍🏫 選擇查看教師：</span>
@@ -174,6 +176,7 @@
                 <p class="text-xs text-amber-700/80 max-w-sm text-right">此視窗為純課表檢視模式，可總覽該教師在各個課程、年級和班級的所有排堂。</p>
             </div>
 
+            <!-- 大棋盤主體區 -->
             <div class="flex-1 overflow-auto">
                 <div class="grid grid-cols-6 gap-2 h-full min-h-[620px]">
                     <div class="bg-gray-100 p-3 text-center font-bold text-gray-500 rounded-lg flex items-center justify-center border text-xs">節數 / 時間</div>
@@ -189,6 +192,7 @@
 
                         <div v-for="day in 5" :key="day" class="border border-dashed border-gray-300 rounded-xl p-1 bg-gray-50/20 hover:bg-indigo-50/40 transition-all flex flex-col justify-start min-h-[95px]" @dragover.prevent @drop="currentTab === 'class' ? onDrop($event, day, slot.num) : null">
                             
+                            <!-- 情況 A：班級課表模式 -->
                             <template v-if="currentTab === 'class'">
                                 <div v-for="item in getCellBlocks(day, slot.num)" :key="item.id" draggable="true" @dragstart="onDragStartFromGrid($event, item)" :class="['p-2 rounded-lg shadow-sm h-full w-full flex flex-col justify-between relative group cursor-grab hover:shadow-md transition-all border min-h-[85px]', searchTeacher && item.teacher === searchTeacher ? 'ring-4 ring-amber-400 border-amber-500 bg-amber-50/90' : getColorClass(item.program).bg, getColorClass(item.program).border]">
                                     <div>
@@ -217,6 +221,7 @@
                                 </div>
                             </template>
 
+                            <!-- 情況 B：老師專屬課表檢視模式 -->
                             <template v-else-if="currentTab === 'teacher'">
                                 <div v-for="item in getTeacherCellBlocks(day, slot.num)" :key="item.id" :class="['p-2 rounded-lg shadow-sm h-full w-full flex flex-col justify-between border min-h-[85px] bg-amber-50/90 border-amber-300 ring-2 ring-amber-200']">
                                     <div>
@@ -242,8 +247,6 @@
 
                         </div>
                     </template>
-                </div>
-            </div>
                 </div>
             </div>
         </div>
@@ -425,10 +428,10 @@
                 const viewProgram = ref("應用經濟學學士學位課程");
                 const viewGrade = ref("大一");
                 const viewClass = ref("A");
-                const currentTab = ref("class"); // 控制目前處於 'class' (班級) 還是 'teacher' (老師) 視窗
+                const currentTab = ref("class"); 
                 const searchTeacher = ref("");
 
-                // 動態獲取全學院所有有任務的老師清單 (已修正語法錯誤)
+                // 動態獲取全學院所有有任務的老師清單
                 const allTeachersList = computed(() => {
                     const teachers = new Set();
                     unassignedBlocks.value.forEach(b => { if(b.teacher) teachers.add(b.teacher.trim()); });
@@ -542,15 +545,13 @@
                     dragSource = 'grid'; draggedBlockData = { ...gridItemWithOrigin }; originalGridItem = gridItemWithOrigin.originItem;
                 }
 
-                style="display:none"
-
                 function onDrop(event, targetDay, targetSlot) {
                     if (!draggedBlockData) return;
                     const classConflict = timetable.value.find(item => item !== originalGridItem && item.day === targetDay && item.slot === targetSlot && item.block.program === draggedBlockData.program && item.block.grade === draggedBlockData.grade && item.block.className === draggedBlockData.className);
                     if (classConflict) { alert(`❌【班級課表衝突！】\n${draggedBlockData.grade}${draggedBlockData.className}班 該時段已有「${classConflict.block.subject}」！`); return; }
                     
                     const teacherConflict = timetable.value.find(item => item !== originalGridItem && item.day === targetDay && item.slot === targetSlot && item.block.teacher === draggedBlockData.teacher);
-                    if (teacherConflict) { alert(`❌【教師時間撞堂！】\n${draggedBlockData.teacher}老師該時段已在「${teacherConflict.block.grade}${teacherConflict.block.className}班」上堂！`); return; }
+                    if (teacherConflict) { alert(`❌【教師時間撞堂！】\n${draggedBlockData.teacher}老師該時段已在「${teacherConflict.block.grade}${teacherConflict.block.className}班 Gord」上堂！`); return; }
 
                     if (dragSource === 'pool') {
                         timetable.value.push({ day: targetDay, slot: targetSlot, block: draggedBlockData });
@@ -567,21 +568,24 @@
                                item.block.program === viewProgram.value && item.block.grade === viewGrade.value && item.block.className === viewClass.value;
                     }).map(item => ({ ...item.block, originItem: item }));
                 }
-// 🆕 獲取指定老師在特定星期和節數的所有排堂資料（供老師時間表視窗渲染）
-function getTeacherTeacherCellBlocks(day, slot) {
-    if (!searchTeacher.value) return [];
-    return timetable.value.filter(item => 
-        item.day === day && 
-        item.slot === slot && 
-        item.block.teacher.trim() === searchTeacher.value.trim()
-    );
-}
+
+                // 獲取指定老師在特定星期和節數的所有排堂資料（供老師時間表視窗渲染）
+                function getTeacherCellBlocks(day, slot) {
+                    if (!searchTeacher.value) return [];
+                    return timetable.value.filter(item => 
+                        item.day === day && 
+                        item.slot === slot && 
+                        item.block.teacher.trim() === searchTeacher.value.trim()
+                    );
+                }
+
                 function removeSchedule(blockWithOrigin) {
                     const originalItem = blockWithOrigin.originItem;
                     timetable.value = timetable.value.filter(item => item !== originalItem);
                     unassignedBlocks.value.push(originalItem.block);
                 }
 
+                // 導出 Excel
                 function exportToExcel() {
                     if (timetable.value.length === 0) { alert("當前未排定任何課程。"); return; }
                     const headers = ["學位課程代碼", "學位課程", "年級班級", "節數/時間", "星期一", "星期二", "星期三", "星期四", "星期五"];
@@ -628,13 +632,11 @@ function getTeacherTeacherCellBlocks(day, slot) {
 
                 return {
                     timeSlots, programs, programCodes, getProgramCode, getColorClass, grades, unassignedBlocks, timetable,
-                    filterProgram, filterGrade, filterClass, viewProgram, viewGrade, viewClass,
+                    filterProgram, filterGrade, filterClass, viewProgram, viewGrade, viewClass, currentTab,
                     searchTeacher, allTeachersList, checkTeacherHasClassElsewhere, getTeacherElsewhereDetails, getTeacherLessonCount,
                     showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
                     openModal, addFormRow, removeFormRow, onDragStartFromPool, onDragStartFromGrid, onDrop, 
-                    getCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules,
-                    currentTab,
-    getTeacherCellBlocks: getTeacherTeacherCellBlocks, // 映射到 HTML
+                    getCellBlocks, getTeacherCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules
                 };
             }
         }).mount('#app');
