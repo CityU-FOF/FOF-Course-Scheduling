@@ -123,6 +123,9 @@
                 <button @click="currentTab = 'teacher'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'teacher' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-gray-700']">
                     👨‍🏫 按老師時間表檢視
                 </button>
+                <button @click="currentTab = 'slot'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'slot' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-gray-700']">
+                    📊 按排課時段檢閱
+                </button>
             </div>
 
             <!-- TAB 1：班級課表檢視下的篩選欄 -->
@@ -176,6 +179,15 @@
                     </span>
                 </div>
                 <p class="text-xs text-amber-700/80 max-w-sm text-right">此視窗為純課表檢視模式，可總覽該教師在各個課程、年級和班級的所有排堂。</p>
+            </div>
+            <div v-if="currentTab === 'slot'" class="bg-purple-50/50 p-4 rounded-xl mb-4 border border-purple-200 shrink-0 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm font-bold text-purple-800 bg-purple-100 px-3 py-1.5 rounded-lg">📊 全院時段課量監控</span>
+                    <span class="text-sm text-purple-900 font-medium">
+                        目前全院已排定總課量：<span class="text-indigo-600 font-extrabold text-base underline">{{ timetable.length }}</span> 節
+                    </span>
+                </div>
+                <p class="text-xs text-purple-700/80 max-w-sm text-right">此視窗顯示全學院各個時段的「排課飽和度」，格子中會顯示該時段排了多少節課與具體明細。</p>
             </div>
 
             <!-- 大棋盤主體區 -->
@@ -246,7 +258,22 @@
                                 <div v-if="!searchTeacher" class="text-center text-gray-300 text-[10px] my-auto">未選教師</div>
                                 <div v-else-if="getTeacherCellBlocks(day, slot.num).length === 0" class="text-center text-emerald-600 font-medium text-[10px] my-auto bg-emerald-50/50 py-1 rounded border border-dashed border-emerald-200">無排堂 (空檔)</div>
                             </template>
-
+                            <template v-else-if="currentTab === 'slot'">
+                                <div class="w-full h-full flex flex-col justify-between min-h-[85px]">
+                                    <div class="text-center py-1.5 rounded-lg font-extrabold text-sm border"
+                                         :class="getSlotDensityClass(getSlotAllBlocks(day, slot.num).length)">
+                                        已排：{{ getSlotAllBlocks(day, slot.num).length }} 節課
+                                    </div>
+                                    
+                                    <div class="flex-1 overflow-y-auto max-h-[60px] space-y-1 mt-1.5 pr-0.5">
+                                        <div v-for="item in getSlotAllBlocks(day, slot.num)" :key="item.id"
+                                             class="text-[9px] px-1 py-0.5 rounded bg-white border border-gray-200 text-gray-700 truncate"
+                                             :title="`${item.block.subject} (${item.block.teacher}) - ${item.block.grade}${item.block.className}班`">
+                                            <span class="font-bold text-indigo-600">[{{ item.block.teacher }}]</span> {{ item.block.subject }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
                     </template>
                 </div>
@@ -580,7 +607,18 @@
                         item.block.teacher.trim() === searchTeacher.value.trim()
                     );
                 }
+                // 🆕 獲取全學院在該時段排定的所有課程（不論班級與老師）
+                function getSlotAllBlocks(day, slot) {
+                    return timetable.value.filter(item => item.day === day && item.slot === slot);
+                }
 
+                // 🆕 根據排課數量自動變色（沒課綠色、課少灰色、課多變橙色提醒）
+                function getSlotDensityClass(count) {
+                    if (count === 0) return "bg-emerald-50 border-emerald-200 text-emerald-700";
+                    if (count <= 2) return "bg-slate-50 border-slate-200 text-slate-700";
+                    if (count <= 5) return "bg-orange-50 border-orange-200 text-orange-700";
+                    return "bg-rose-50 border-rose-200 text-rose-700 ring-1 ring-rose-200";
+                }
                 function removeSchedule(blockWithOrigin) {
                     const originalItem = blockWithOrigin.originItem;
                     timetable.value = timetable.value.filter(item => item !== originalItem);
@@ -644,7 +682,7 @@
                     showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
                     openModal, addFormRow, removeFormRow, onDragStartFromPool, onDragStartFromGrid, onDrop, 
                     getCellBlocks, getTeacherCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules,
-                    deletePoolBlock
+                    deletePoolBlock, getSlotAllBlocks, getSlotDensityClass
                 };
             }
         }).mount('#app');
