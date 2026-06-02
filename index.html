@@ -4,26 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>金融學院排課系統</title>
+    <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- 引入 XLSX 庫 -->
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     
+    <!-- 1. 核心修復：利用 v-cloak 配合 CSS，在 Vue 未完全載入前絕對隱藏原始大括號 -->
     <style>
         [v-cloak] { display: none !important; }
     </style>
 </head>
 <body class="bg-gray-100 font-sans antialiased text-gray-800">
 
+    <!-- 2. 核心修復：在根節點加上 v-cloak -->
     <div id="app" v-cloak class="flex h-screen overflow-hidden p-4">
         
+        <!-- ================= 左側欄：操作與待排課拼圖池 ================= -->
         <div class="w-96 bg-white p-4 rounded-xl shadow-lg mr-4 flex flex-col border border-gray-200 overflow-hidden">
             
+            <!-- 頂部：自定義生成拼圖塊按鈕 -->
             <div class="mb-4 pb-4 border-b border-gray-200">
                 <button @click="openModal" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold text-sm shadow transition flex items-center justify-center">
                     批量創建與生成拼圖塊
                 </button>
             </div>
 
+            <!-- 中部：待排課拼圖池的篩選器 -->
             <div class="mb-4 space-y-2 bg-gray-50 p-3 rounded-lg border">
                 <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider">篩選待排課池</h4>
                 <div>
@@ -51,6 +59,7 @@
                 </div>
             </div>
 
+            <!-- 下部：滾動卡片清單（拼圖池） -->
             <div class="flex-1 overflow-hidden flex flex-col">
                 <h3 class="font-bold text-sm text-gray-700 mb-2 flex items-center justify-between">
                     <span>待排課拼圖塊清單</span>
@@ -84,8 +93,10 @@
             </div>
         </div>
 
+        <!-- ================= 右側欄：排課視窗與數據統計中心 ================= -->
         <div class="flex-1 bg-white p-5 rounded-xl shadow-lg flex flex-col border border-gray-200 overflow-hidden">
             
+            <!-- 頂部控制與導出 -->
             <div class="flex justify-between items-center mb-4 pb-4 border-b border-gray-100">
                 <div>
                     <h1 class="font-bold text-2xl text-gray-800">金融學院排課系統</h1>
@@ -109,8 +120,10 @@
                 </div>
             </div>
 
+            <!-- 三維視角切換器面板 -->
             <div class="bg-indigo-50/50 p-4 rounded-xl mb-4 flex flex-col space-y-3 border border-indigo-100">
                 
+                <!-- TAB 切換按鈕組 -->
                 <div class="flex space-x-2 border-b pb-2 border-indigo-200/40">
                     <button @click="viewMode = 'class'" :class="viewMode === 'class' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'" class="px-4 py-1.5 text-xs font-semibold rounded-md shadow-sm transition border">
                         按班級課表檢視
@@ -124,7 +137,9 @@
                     </button>
                 </div>
 
+                <!-- 各個分頁下的條件篩選欄 -->
                 <div class="flex items-center space-x-4">
+                    <!-- 1. 班級視角 -->
                     <template v-if="viewMode === 'class'">
                         <div class="flex items-center space-x-2 flex-1">
                             <span class="text-sm font-semibold text-gray-700 shrink-0">1. 選擇課程：</span>
@@ -146,6 +161,7 @@
                         </div>
                     </template>
 
+                    <!-- 2. 老師視角 -->
                     <template v-else-if="viewMode === 'teacher'">
                         <div class="flex items-center space-x-2 w-full">
                             <span class="text-sm font-semibold text-gray-700 shrink-0">請選擇任課老師時間表：</span>
@@ -156,6 +172,7 @@
                         </div>
                     </template>
 
+                    <!-- 3. 時數審計視角提示 -->
                     <template v-else>
                         <div class="text-xs text-gray-500">
                             📊 依據「已生成的拼圖班級數據」實時覆核。每週1節課按常規標準對應每班 45 小時，後方數字為一鍵生成時的總任務時數目標。
@@ -164,6 +181,9 @@
                 </div>
             </div>
 
+            <!-- ================= 主內容顯示區（根據視角一切換） ================= -->
+            
+            <!-- 視角 A & B：5 × 8 排課大棋盤 -->
             <div v-show="viewMode === 'class' || viewMode === 'teacher'" class="flex-1 overflow-auto">
                 <div class="grid grid-cols-6 gap-2 h-full min-h-[620px]">
                     <div class="bg-gray-100 p-3 text-center font-bold text-gray-500 rounded-lg flex items-center justify-center border text-xs">節數 / 時間</div>
@@ -172,17 +192,20 @@
                     </div>
 
                     <template v-for="slot in timeSlots" :key="slot.num">
+                        <!-- 時間列 -->
                         <div class="bg-gray-50 border p-2 flex flex-col justify-center items-center rounded-lg text-center shadow-sm">
                             <span class="font-bold text-gray-600 text-xs">第 {{ slot.num }} 節</span>
                             <span class="text-[10px] text-indigo-600 mt-1 font-mono bg-white px-1 py-0.5 rounded border">{{ slot.time }}</span>
                         </div>
 
+                        <!-- 5個星期的格子 Drop Zones -->
                         <div v-for="day in 5" 
                              :key="day" 
                              class="border-2 border-dashed border-gray-200 rounded-xl p-1.5 bg-gray-50/30 hover:bg-indigo-50/50 hover:border-indigo-300 transition-all flex flex-col justify-center min-h-[75px]"
                              @dragover.prevent
                              @drop="onDrop($event, day, slot.num)">
                             
+                            <!-- 格子內已被排定的課程卡片 -->
                             <div v-for="item in getCellBlocks(day, slot.num)" 
                                  :key="item.id" 
                                  draggable="true"
@@ -206,6 +229,7 @@
                                     {{ item.teacher }}
                                 </div>
 
+                                <!-- 刪除按鈕 -->
                                 <button @click="removeSchedule(item)" class="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full w-4 h-4 text-[10px] flex items-center justify-center shadow hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity">
                                     ×
                                 </button>
@@ -215,10 +239,12 @@
                 </div>
             </div>
 
+            <!-- 視角 C：老師授課時數統計大面板 -->
             <div v-show="viewMode === 'hours'" class="flex-1 overflow-y-auto space-y-4 pr-2">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div v-for="tStat in teacherHoursReport" :key="tStat.teacherName" class="p-4 bg-white border border-gray-200 rounded-xl shadow-sm hover:border-indigo-300 transition flex flex-col justify-between">
                         <div>
+                            <!-- 頂部姓名與總計 -->
                             <div class="flex justify-between items-center mb-3">
                                 <h3 class="font-bold text-base text-gray-800">{{ tStat.teacherName }} 老師</h3>
                                 <span :class="tStat.allocatedHours === tStat.targetHours ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'" class="text-xs font-bold px-2.5 py-0.5 rounded-full">
@@ -226,6 +252,7 @@
                                 </span>
                             </div>
 
+                            <!-- 拆解科目明細 -->
                             <div class="space-y-2.5">
                                 <div v-for="sub in tStat.subjects" :key="sub.subjectName" class="text-xs bg-slate-50 p-2 rounded border border-slate-100">
                                     <div class="flex justify-between font-medium text-gray-700 mb-1">
@@ -234,6 +261,7 @@
                                         </span>
                                         <span class="font-mono font-bold">{{ sub.allocated }} / {{ sub.target }} 小時</span>
                                     </div>
+                                    <!-- 實時進度條 -->
                                     <div class="w-full bg-gray-200 h-2 rounded-full overflow-hidden mt-1">
                                         <div :class="sub.allocated === sub.target ? 'bg-emerald-500' : 'bg-indigo-500'" 
                                              :style="{ width: (sub.target > 0 ? (sub.allocated / sub.target * 100) : 0) + '%' }" 
@@ -252,6 +280,7 @@
 
         </div>
 
+        <!-- ================= 批量生成拼圖塊的彈出視窗 (Modal) ================= -->
         <div v-if="showModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full p-6 space-y-4 border flex flex-col max-h-[90vh]">
                 <div class="flex justify-between items-center border-b pb-2">
@@ -259,6 +288,7 @@
                     <button @click="showModal = false" class="text-gray-400 hover:text-gray-600 text-xl">×</button>
                 </div>
 
+                <!-- 統一配置：課程與年級 -->
                 <div class="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border text-sm">
                     <div>
                         <label class="block font-medium text-gray-700 mb-1">1. 選擇學位課程名稱</label>
@@ -274,6 +304,7 @@
                     </div>
                 </div>
 
+                <!-- 多行動態表格輸入區 -->
                 <div class="flex-1 overflow-y-auto border rounded-lg">
                     <table class="w-full text-left border-collapse text-sm">
                         <thead>
@@ -320,6 +351,7 @@
                     </table>
                 </div>
 
+                <!-- 底部統計預覽 -->
                 <div class="flex justify-between items-center pt-2">
                     <button @click="addFormRow" class="px-4 py-2 border border-indigo-600 text-indigo-600 rounded-lg text-xs font-semibold hover:bg-indigo-50 transition">
                         增加一欄科目 / 老師
@@ -333,6 +365,7 @@
                     </div>
                 </div>
 
+                <!-- 按鈕操作 -->
                 <div class="flex space-x-3 pt-4 border-t">
                     <button @click="showModal = false" class="flex-1 py-2 border rounded-lg text-gray-600 hover:bg-gray-100 font-semibold transition">取消</button>
                     <button @click="generateBlocks" :disabled="totalPreviewCount === 0" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold disabled:bg-gray-300 disabled:cursor-not-allowed transition">
@@ -344,6 +377,7 @@
 
     </div>
 
+    <!-- Vue 邏輯中心 -->
     <script>
         const { createApp, ref, computed, watch } = Vue;
 
@@ -414,7 +448,11 @@
 
                 const showModal = ref(false);
                 const formCommon = ref({ program: "應用經濟學學士學位課程", grade: "大一" });
-                const formRows = ref([]);
+                
+                // 3. 核心修復：直接在初始 Ref 中注入標準的一行完整對象結構，絕不允許留空。這樣 Vue 啟動時計算屬性就不會報錯死機！
+                const formRows = ref([
+                    { subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2, isInsuredTriggered: false }
+                ]);
 
                 const allTeachersInSystem = computed(() => {
                     const teachers = new Set();
@@ -479,7 +517,7 @@
                     return teacherHoursReport.value.some(t => t.allocatedHours < t.targetHours);
                 });
 
-                // 修復關鍵點：開啟彈窗時強制立即初始化 formRows 數據
+                // 4. 核心修復：打開彈窗時只需將這行已有結構重置乾淨，而非改為空陣列
                 function openModal() {
                     formCommon.value = { program: "應用經濟學學士學位課程", grade: "大一" };
                     formRows.value = [
@@ -513,4 +551,267 @@
                     });
 
                     if (existingClasses.size > 0) {
-                        const
+                        const charCodes = Array.from(existingClasses).map(c => c.toUpperCase().charCodeAt(0));
+                        const maxCode = Math.max(...charCodes);
+                        const nextStartLetter = String.fromCharCode(maxCode + 1);
+                        const currentSpan = row.classEnd.toUpperCase().charCodeAt(0) - row.classStart.toUpperCase().charCodeAt(0);
+                        const newEndLetter = String.fromCharCode(maxCode + 1 + (currentSpan > 0 ? currentSpan : 0));
+
+                        row.classStart = nextStartLetter;
+                        row.classEnd = newEndLetter;
+                        row.isInsuredTriggered = true;
+                    } else {
+                        row.isInsuredTriggered = false;
+                    }
+                }
+
+                function getRowClassesArray(row) {
+                    if (!row || !row.classStart || !row.classEnd) return [];
+                    const start = row.classStart.trim().toUpperCase();
+                    const end = row.classEnd.trim().toUpperCase();
+                    if (!start || !end) return [];
+                    const startCode = start.charCodeAt(0);
+                    const endCode = end.charCodeAt(0);
+                    if (startCode > endCode || startCode < 65 || endCode > 90) return [];
+                    const list = [];
+                    for (let i = startCode; i <= endCode; i++) list.push(String.fromCharCode(i));
+                    return list;
+                }
+
+                const totalPreviewCount = computed(() => {
+                    let total = 0;
+                    if (!formRows.value) return 0;
+                    formRows.value.forEach(row => {
+                        if (row && row.subject && row.subject.trim() && row.teacher && row.teacher.trim()) {
+                            total += getRowClassesArray(row).length * (row.lessonsPerWeek || 1);
+                        }
+                    });
+                    return total;
+                });
+
+                const validRowsCount = computed(() => {
+                    if (!formRows.value) return 0;
+                    return formRows.value.filter(r => r && r.subject && r.subject.trim() && r.teacher && r.teacher.trim()).length;
+                });
+
+                const availableClassesInPool = computed(() => {
+                    const classes = new Set();
+                    unassignedBlocks.value.forEach(b => {
+                        if ((!filterProgram.value || b.program === filterProgram.value) && (!filterGrade.value || b.grade === filterGrade.value)) classes.add(b.className);
+                    });
+                    return Array.from(classes).sort();
+                });
+
+                const availableClassesForView = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N"];
+
+                const filteredUnassignedBlocks = computed(() => {
+                    return unassignedBlocks.value.filter(b => {
+                        const matchProg = !filterProgram.value || b.program === filterProgram.value;
+                        const matchGrade = !filterGrade.value || b.grade === filterGrade.value;
+                        const matchCls = !filterClass.value || b.className === filterClass.value;
+                        return matchProg && matchGrade && matchCls;
+                    });
+                });
+
+                watch([unassignedBlocks, timetable], () => {
+                    localStorage.setItem('fai_unassignedBlocks', JSON.stringify(unassignedBlocks.value));
+                    localStorage.setItem('fai_timetable', JSON.stringify(timetable.value));
+                }, { deep: true });
+
+                function generateBlocks() {
+                    const timestamp = Date.now();
+                    let count = 0;
+                    formRows.value.forEach(row => {
+                        if (!row.subject.trim() || !row.teacher.trim()) return;
+                        const classes = getRowClassesArray(row);
+                        classes.forEach(cls => {
+                            for (let i = 0; i < row.lessonsPerWeek; i++) {
+                                unassignedBlocks.value.push({
+                                    id: `B_${timestamp}_${count++}`,
+                                    program: formCommon.value.program,
+                                    grade: formCommon.value.grade,
+                                    subject: row.subject.trim(),
+                                    teacher: row.teacher.trim(),
+                                    className: cls
+                                });
+                            }
+                        });
+                    });
+                    alert(`已成功生成 ${count} 個課程拼圖塊！`);
+                    showModal.value = false;
+                }
+
+                // 拖拽引擎
+                let dragSource = null; 
+                let draggedBlockData = null; 
+                let originalGridItem = null; 
+
+                function onDragStartFromPool(event, block) {
+                    dragSource = 'pool';
+                    draggedBlockData = block;
+                }
+
+                function onDragStartFromGrid(event, gridItemWithOrigin) {
+                    dragSource = 'grid';
+                    draggedBlockData = { ...gridItemWithOrigin }; 
+                    originalGridItem = gridItemWithOrigin.originItem; 
+                }
+
+                function onDrop(event, targetDay, targetSlot) {
+                    if (!draggedBlockData) return;
+
+                    // 1. 學生防撞
+                    const classConflict = timetable.value.find(item => 
+                        item !== originalGridItem && 
+                        item.day === targetDay && 
+                        item.slot === targetSlot && 
+                        item.block.program === draggedBlockData.program && 
+                        item.block.grade === draggedBlockData.grade &&
+                        item.block.className === draggedBlockData.className
+                    );
+                    if (classConflict) {
+                        alert(`❌【班級課表衝突！】\n${draggedBlockData.grade}${draggedBlockData.className}班 該時段已有「${classConflict.block.subject}」！`);
+                        return;
+                    }
+
+                    // 2. 老師防撞
+                    const teacherConflict = timetable.value.find(item => 
+                        item !== originalGridItem &&
+                        item.day === targetDay && 
+                        item.slot === targetSlot && 
+                        item.block.teacher === draggedBlockData.teacher
+                    );
+                    if (teacherConflict) {
+                        alert(`❌【教師時間撞堂！】\n${draggedBlockData.teacher}老師該時段已在「${teacherConflict.block.grade}${teacherConflict.block.className}班」上堂！`);
+                        return;
+                    }
+
+                    // 3. 一日上限
+                    const teacherTodayLessons = timetable.value.filter(item => 
+                        item !== originalGridItem &&
+                        item.day === targetDay && 
+                        item.block.teacher === draggedBlockData.teacher
+                    ).length;
+                    if (teacherTodayLessons >= 4) {
+                        alert(`⚠️【超授課上限！】\n${draggedBlockData.teacher}老師在該工作日已排了 4 節課，達到上限！`);
+                        return;
+                    }
+
+                    if (dragSource === 'pool') {
+                        timetable.value.push({ day: targetDay, slot: targetSlot, block: draggedBlockData });
+                        unassignedBlocks.value = unassignedBlocks.value.filter(b => b.id !== draggedBlockData.id);
+                    } else if (dragSource === 'grid') {
+                        if (originalGridItem) {
+                            originalGridItem.day = targetDay;
+                            originalGridItem.slot = targetSlot;
+                        }
+                    }
+
+                    dragSource = null; draggedBlockData = null; originalGridItem = null;
+                }
+
+                function getCellBlocks(day, slot) {
+                    return timetable.value.filter(item => {
+                        if (item.day !== day || item.slot !== slot) return false;
+                        if (viewMode.value === 'class') {
+                            return item.block.program === viewProgram.value && 
+                                   item.block.grade === viewGrade.value &&
+                                   item.block.className === viewClass.value;
+                        } else if (viewMode.value === 'teacher') {
+                            return item.block.teacher === viewTeacher.value;
+                        }
+                        return false;
+                    }).map(item => ({ ...item.block, originItem: item }));
+                }
+
+                function removeSchedule(blockWithOrigin) {
+                    const originalItem = blockWithOrigin.originItem;
+                    timetable.value = timetable.value.filter(item => item !== originalItem);
+                    unassignedBlocks.value.push(originalItem.block);
+                }
+
+                function exportToExcel() {
+                    if (timetable.value.length === 0) { alert("當前未排定任何課程，無法導出空表格。"); return; }
+
+                    const headers = ["學位課程代碼", "學位課程", "年級班級", "節數/時間", "星期一", "星期二", "星期三", "星期四", "星期五"];
+                    const rows = [];
+                    const groupMap = {};
+
+                    timetable.value.forEach(item => {
+                        const key = `${item.block.program}##${item.block.grade}${item.block.className}班`;
+                        if (!groupMap[key]) groupMap[key] = [];
+                        groupMap[key].push(item);
+                    });
+
+                    Object.keys(groupMap).sort().forEach(key => {
+                        const [prog, clsInfo] = key.split("##");
+                        const items = groupMap[key];
+
+                        timeSlots.forEach(slot => {
+                            const rowData = { 
+                                "學位課程代碼": programCodes[prog] || "N/A",
+                                "學位課程": prog, 
+                                "年級班級": clsInfo, 
+                                "節數/時間": `第${slot.num}節 (${slot.time})` 
+                            };
+                            for (let d = 1; d <= 5; d++) {
+                                const found = items.find(i => i.day === d && i.slot === slot.num);
+                                const dayKey = ["星期一", "星期二", "星期三", "星期四", "星期五"][d - 1];
+                                rowData[dayKey] = found ? `${found.block.subject} (${found.block.teacher})` : "";
+                            }
+                            rows.push(rowData);
+                        });
+                        rows.push({});
+                    });
+
+                    const worksheet = XLSX.utils.json_to_sheet(rows, { header: headers });
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "學院總課表數據");
+
+                    worksheet["!cols"] = [
+                        { wch: 15 }, { wch: 25 }, { wch: 12 }, { wch: 18 },
+                        { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }
+                    ];
+                    XLSX.writeFile(workbook, `金融学院排课总表_${new Date().toLocaleDateString()}.xlsx`);
+                }
+
+                function exportData() {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ unassignedBlocks: unassignedBlocks.value, timetable: timetable.value }));
+                    const downloadAnchor = document.createElement('a');
+                    downloadAnchor.setAttribute("href", dataStr);
+                    downloadAnchor.setAttribute("download", `金融学院排课数据备份_${new Date().toLocaleDateString()}.json`);
+                    document.body.appendChild(downloadAnchor);
+                    downloadAnchor.click();
+                    downloadAnchor.remove();
+                }
+
+                function importData(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const parsed = JSON.parse(e.target.result);
+                            if (parsed.unassignedBlocks && parsed.timetable) { unassignedBlocks.value = parsed.unassignedBlocks; timetable.value = parsed.timetable; alert("✅ 數據備份成功還原！"); }
+                        } catch (err) { alert("無效的備份文件。"); }
+                    };
+                    reader.readAsText(file);
+                }
+
+                function clearAllSchedules() {
+                    if (confirm("⚠️ 確定要清空已排定的所有格子並重新開始嗎？")) { unassignedBlocks.value = []; timetable.value = []; }
+                }
+
+                return {
+                    timeSlots, programs, programCodes, grades, unassignedBlocks, timetable,
+                    filterProgram, filterGrade, filterClass, viewMode, viewProgram, viewGrade, viewClass, viewTeacher, allTeachersInSystem, teacherHoursReport, hasIncompleteTeachers,
+                    showModal, formCommon, formRows, totalPreviewCount, validRowsCount, getMorandiColor,
+                    availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
+                    openModal, addFormRow, removeFormRow, applySmartInsurance, onDragStartFromPool, onDragStartFromGrid, onDrop, 
+                    getCellBlocks, removeSchedule, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
