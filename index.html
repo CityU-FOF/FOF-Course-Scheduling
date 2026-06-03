@@ -19,13 +19,13 @@
         
         <div class="w-80 bg-white p-4 rounded-xl shadow-lg mr-4 flex flex-col border border-gray-200 overflow-hidden">
             
-          <div class="mb-4 pb-2 border-b border-gray-100 flex flex-col items-start bg-gray-50 rounded-lg p-3 min-h-[64px]">
+         <div class="mb-4 pb-2 border-b border-gray-100 flex flex-col items-start bg-gray-50 rounded-lg p-3 min-h-[64px]">
                 <img src="金融學院logo.jpg" alt="Faculty of Finance" class="w-full h-auto object-contain max-h-12 mb-1" onerror="this.style.display='none';">
-                <div class="font-bold text-2xl text-gray-800 tracking-tight leading-tight">
-                    <span class="text-[#004D2C] block">澳門城市大學</span>
-                    <span class="text-xs text-gray-500 font-mono block tracking-normal uppercase">City University of Macau</span>
-                    <span class="text-[#8A704C] block mt-0.5 text-xl">金融學院</span>
-                    <span class="text-[11px] text-gray-400 font-mono block tracking-normal">Faculty of Finance</span>
+                <div class="text-gray-800 tracking-tight leading-snug">
+                    <span class="text-[#004D2C] block text-xl font-bold">澳門城市大學</span>
+                    <span class="text-xs text-gray-500 font-sans block tracking-wide uppercase">City University of Macau</span>
+                    <span class="text-[#8A704C] block mt-1 text-xl font-bold">金融學院</span>
+                    <span class="text-xs text-gray-500 font-sans block tracking-wide uppercase">Faculty of Finance</span>
                 </div>
             </div>
 
@@ -407,13 +407,13 @@
                         <tbody>
                             <tr v-for="(row, index) in formRows" :key="index" class="border-b hover:bg-slate-50/50">
                                 <td class="p-2 pl-4">
-                                    <input type="text" v-model="row.subjectCode" placeholder="例如：BAE106" class="w-full border rounded p-1.5 bg-white focus:outline-[#004D2C] font-mono font-bold uppercase">
+                                   <input type="text" v-model="row.subjectCode" placeholder="例如：BAE101" class="w-full border rounded p-1.5 bg-white focus:outline-[#004D2C] font-sans text-sm uppercase">
                                 </td>
                                 <td class="p-2">
-                                    <input type="text" v-model="row.subject" placeholder="例如：會計學導論I" class="w-full border rounded p-1.5 bg-white focus:outline-[#004D2C]">
+                                    <input type="text" v-model="row.subject" placeholder="例如：微積分導論" class="w-full border rounded p-1.5 bg-white focus:outline-[#004D2C]">
                                 </td>
                                 <td class="p-2">
-                                    <input type="text" v-model="row.teacher" placeholder="例如：李迪" class="w-full border rounded p-1.5 bg-white focus:outline-[#004D2C]">
+                                    <input type="text" v-model="row.teacher" placeholder="例如：蘇正偉" class="w-full border rounded p-1.5 bg-white focus:outline-[#004D2C]">
                                 </td>
                                 <td class="p-2">
                                     <div class="flex items-center space-x-1">
@@ -443,9 +443,9 @@
                     <button @click="addFormRow" class="px-4 py-2 border border-[#004D2C] text-[#004D2C] rounded-lg text-xs font-semibold hover:bg-emerald-50 transition">
                         增加一欄科目 / 老師
                     </button>
-                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 max-w-md">
+                  <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 max-w-md shrink-0">
                         <span class="font-bold">總生成效果預覽：</span>
-                        <span>將根據配置智能生成精細化拼圖卡片。</span>
+                        <span>當前配置預計將生成 <span class="text-red-600 font-extrabold text-sm underline font-mono">{{ previewTotalBlocksCount }}</span> 個課堂拼圖塊。</span>
                     </div>
                 </div>
 
@@ -576,13 +576,31 @@
                     return Array.from(classes).sort();
                 });
 
-                const filteredUnassignedBlocks = computed(() => {
+               const filteredUnassignedBlocks = computed(() => {
                     return unassignedBlocks.value.filter(b => {
                         const matchProg = !filterProgram.value || b.program === filterProgram.value;
                         const matchGrade = !filterGrade.value || b.grade === filterGrade.value;
                         const matchCls = !filterClass.value || b.className === filterClass.value;
                         return matchProg && matchGrade && matchCls;
                     });
+                });
+
+                // 🆕 新增：在批量創建彈窗中，動態監聽並計算出即將生成的總塊數
+                const previewTotalBlocksCount = computed(() => {
+                    let total = 0;
+                    formRows.value.forEach(row => {
+                        const start = row.classStart.trim().toUpperCase();
+                        const end = row.classEnd.trim().toUpperCase();
+                        if (!start || !end) return;
+                        const startCode = start.charCodeAt(0);
+                        const endCode = end.charCodeAt(0);
+                        if (startCode > endCode || startCode < 65 || endCode > 90) return;
+                        
+                        const classCount = (endCode - startCode) + 1; // 算出一共有多少個班級 (如 A到C班 = 3個班)
+                        const lessons = parseInt(row.lessonsPerWeek) || 0;
+                        total += (classCount * lessons);
+                    });
+                    return total;
                 });
 
                 // 動態歸納與時數計算屬性
@@ -970,7 +988,7 @@ Object.keys(sheetsMap).sort((a, b) => {
                     timeSlots, programs, programCodes, getProgramCode, getColorClass, grades, unassignedBlocks, timetable,
                     filterProgram, filterGrade, filterClass, viewProgram, viewGrade, viewClass,
                     searchTeacher, allTeachersList, checkTeacherHasClassElsewhere, getTeacherElsewhereDetails, getTeacherLessonCount,
-                    showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks,
+                    showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks, previewTotalBlocksCount,
                     openModal, addFormRow, removeFormRow, onDragStartFromPool, onDragStartFromGrid, onDrop, 
                     getCellBlocks, getTeacherCellBlocks, getSlotAllBlocks, getSlotDensityClass, removeSchedule, deleteUnassignedBlock, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules,
                     currentTab, teacherStatsList
