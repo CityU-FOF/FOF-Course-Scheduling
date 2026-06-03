@@ -689,20 +689,78 @@
                     dragSource = 'grid'; draggedBlockData = { ...gridItemWithOrigin }; originalGridItem = gridItemWithOrigin.originItem;
                 }
 
+// 修改：升級拖拽投放邏輯，支援跨班級智能合班詢問提示
                 function onDrop(event, targetDay, targetSlot) {
                     if (!draggedBlockData) return;
-                    const classConflict = timetable.value.find(item => item !== originalGridItem && item.day === targetDay && item.slot === targetSlot && item.block.program === draggedBlockData.program && item.block.grade === draggedBlockData.grade && item.block.className === draggedBlockData.className);
-                    if (classConflict) { alert(`❌【班級課表衝突！】\n${draggedBlockData.grade}${draggedBlockData.className}班 該時段已有「${classConflict.block.subject}」！`); return; }
-                    
-                    const teacherConflict = timetable.value.find(item => item !== originalGridItem && item.day === targetDay && item.slot === targetSlot && item.block.teacher === draggedBlockData.teacher);
-                    if (teacherConflict) { alert(`❌【教師時間撞堂！】\n${draggedBlockData.teacher}老師該時段已在「${teacherConflict.block.grade}${teacherConflict.block.className}班」上堂！`); return; }
 
+                    // 1. 先行檢查：是不是同一個班級在同一時間安排了「完全不同」的科目？（這屬於絕對衝突，不允許合班）
+                    const absoluteClassConflict = timetable.value.find(item => 
+                        item !== originalGridItem && 
+                        item.day === targetDay && 
+                        item.slot === targetSlot && 
+                        item.block.program === draggedBlockData.program && 
+                        item.block.grade === draggedBlockData.grade && 
+                        item.block.className === draggedBlockData.className &&
+                        item.block.subject !== draggedBlockData.subject // 科目名稱不同
+                    );
+                    
+                    if (absoluteClassConflict) {
+                        alert(`❌【班級課表絕對衝突！】\n${draggedBlockData.grade}${draggedBlockData.className}班 該時段已有其他科目「${absoluteClassConflict.block.subject}」，無法在此安排合班！`);
+                        return;
+                    }
+
+                    // 2. 智能探測：同一個年級的同一門科目，是不是已經在該時段被其他班級佔用了？（這屬於潜在合班情況）
+                    const potentialMergeConflict = timetable.value.find(item => 
+                        item !== originalGridItem && 
+                        item.day === targetDay && 
+                        item.slot === targetSlot && 
+                        item.block.program === draggedBlockData.program && 
+                        item.block.grade === draggedBlockData.grade && 
+                        item.block.subject === draggedBlockData.subject && // 同一科
+                        item.block.className !== draggedBlockData.className   // 但不同班 (例如 A 班碰上 B 班)
+                    );
+
+                    let isMergeApproved = false;
+                    if (potentialMergeConflict) {
+                        // 彈出確認詢問，要求使用者二次確認是否為合班
+                        const confirmMerge = confirm(
+                            `⚠️【發現排課衝突 / 潛在合班情況】\n\n` +
+                            `該時段已有「${potentialMergeConflict.block.grade}${potentialMergeConflict.block.className}班」在進行《${draggedBlockData.subject}》。\n` +
+                            `你現在正試圖將「${draggedBlockData.className}班」排入此處。\n\n` +
+                            `請問這是否屬於「${draggedBlockData.className}班」與「${potentialMergeConflict.block.className}班」合班聯合上課？`
+                        );
+                        
+                        if (!confirmMerge) {
+                            return; // 使用者取消，中斷排課操作
+                        }
+                        isMergeApproved = true; // 使用者同意合班
+                    }
+
+                    // 3. 教師衝突檢查：如果不是合班（或者是不同科目的老師），才報撞堂
+                    // 如果是合班（同一個老師、同一科、同一時間給不同班上課），則在合班通過的情況下豁免撞堂警告
+                    const teacherConflict = timetable.value.find(item => 
+                        item !== originalGridItem && 
+                        item.day === targetDay && 
+                        item.slot === targetSlot && 
+                        item.block.teacher === draggedBlockData.teacher
+                    );
+
+                    if (teacherConflict && !isMergeApproved) {
+                        alert(`❌【教師時間撞堂！】\n${draggedBlockData.teacher}老師該時段已在「${teacherConflict.block.grade}${teacherConflict.block.className}班」有其他課，無法排入！`);
+                        return;
+                    }
+
+                    // 4. 執行排入程序
                     if (dragSource === 'pool') {
                         timetable.value.push({ day: targetDay, slot: targetSlot, block: draggedBlockData });
                         unassignedBlocks.value = unassignedBlocks.value.filter(b => b.id !== draggedBlockData.id);
                     } else if (dragSource === 'grid') {
-                        if (originalGridItem) { originalGridItem.day = targetDay; originalGridItem.slot = targetSlot; }
+                        if (originalGridItem) { 
+                            originalGridItem.day = targetDay; 
+                            originalGridItem.slot = targetSlot; 
+                        }
                     }
+
                     dragSource = null; draggedBlockData = null; originalGridItem = null;
                 }
 
@@ -785,7 +843,23 @@
 
                     const workbook = XLSX.utils.book_new();
 
-                    Object.keys(sheetsMap).sort().forEach(sheetName => {
+                   // 修改：自定義年級排序權重，確保大一、大二、大三、大四按人類習慣順序排列
+const gradeOrder = { "一": 1, "二": 2, "三": 3, "四": 4 };
+Object.keys(sheetsMap).sort((a, b) => {
+    // 提取分頁名稱中的年級字眼（最後一個字，例如大一、大二的 "一" 或 "二"）
+    const charA = a.charAt(a.length - 1);
+    const charB = b.charAt(b.length - 1);
+    const weightA = gradeOrder[charA] || 99;
+    const weightB = gradeOrder[charB] || 99;
+    
+    // 如果前綴課程代碼（如 BAECF）相同，則按年級權重排序
+    const prefixA = a.substring(0, a.length - 2);
+    const prefixB = b.substring(0, b.length - 2);
+    if (prefixA === prefixB) {
+        return weightA - weightB;
+    }
+    return a.localeCompare(b); // 否則按常規英文字母排序
+}).forEach(sheetName => {
                         const rawItems = sheetsMap[sheetName];
                         const uniqueCourseMap = {};
 
