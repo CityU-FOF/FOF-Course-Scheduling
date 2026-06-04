@@ -12,6 +12,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
 </head>
 <body class="bg-gray-100 font-sans antialiased text-gray-800">
 
@@ -103,111 +105,113 @@
             </div>
         </div>
 
-        <div class="flex-1 bg-white p-5 rounded-xl shadow-lg flex flex-col border border-gray-200 overflow-hidden">
+<div class="flex-1 bg-white p-3.5 rounded-xl shadow-lg flex flex-col border border-gray-200 overflow-hidden">
             
-            <div class="flex justify-between items-center mb-4 pb-4 border-b border-gray-100">
+            <div class="flex justify-between items-center mb-2 pb-2 border-b border-gray-100 shrink-0">
                 <div>
-                    <h1 class="font-bold text-2xl text-gray-800 flex items-center">
-                        <span class="w-3 h-6 bg-[#004D2C] rounded mr-2 inline-block"></span>
+                    <h1 class="font-bold text-xl text-gray-800 flex items-center">
+                        <span class="w-2.5 h-5 bg-[#004D2C] rounded mr-2 inline-block"></span>
                         金融學院排課系統
                     </h1>
-                    <p class="text-xs text-gray-500 mt-1">排課視窗：支援班級與教師聯動追蹤，及全院課時自動核算明細</p>
+                    <p class="text-[11px] text-gray-400 mt-0.5">排課視窗：支援班級與教師聯動追蹤，及全院課時自動核算明細</p>
                 </div>
                 
-                <div class="flex items-center space-x-2">
-                    <button @click="exportToExcel" class="px-4 py-2 bg-[#004D2C] hover:bg-[#8A704C] text-white text-xs font-semibold rounded-lg shadow transition">
+                <div class="flex items-center space-x-1.5">
+                    <button @click="openPrintModal" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow transition flex items-center gap-1">
+                        🖨️ 打印課表 (PDF)
+                    </button>
+                    <button @click="exportToExcel" class="px-3 py-1.5 bg-[#004D2C] hover:bg-[#8A704C] text-white text-xs font-semibold rounded-lg shadow transition">
                         導出 EXCEL
                     </button>
-                    <button @click="exportData" class="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition">
-                        備份數據
+                    <button @click="exportData" class="px-2.5 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition">
+                        備份
                     </button>
-                    <label class="px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer">
-                        還原數據
+                    <label class="px-2.5 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer">
+                        還原
                         <input type="file" @change="importData" class="hidden" accept=".json">
                     </label>
-                    <button @click="clearAllSchedules" class="px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition">
+                    <button @click="clearAllSchedules" class="px-2.5 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-lg transition">
                         重設
                     </button>
                 </div>
             </div>
 
-            <div class="flex border-b border-gray-200 mb-4 shrink-0">
-                <button @click="currentTab = 'class'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'class' ? 'border-[#004D2C] text-[#004D2C] bg-emerald-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-[#004D2C]']">
+            <div class="flex border-b border-gray-200 mb-2 shrink-0">
+                <button @click="currentTab = 'class'" :class="['px-4 py-1.5 font-bold text-xs border-b-2 transition-all', currentTab === 'class' ? 'border-[#004D2C] text-[#004D2C] bg-emerald-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-[#004D2C]']">
                     📅 按班級時間表檢視
                 </button>
-                <button @click="currentTab = 'teacher'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'teacher' ? 'border-[#004D2C] text-[#004D2C] bg-emerald-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-[#004D2C]']">
+                <button @click="currentTab = 'teacher'" :class="['px-4 py-1.5 font-bold text-xs border-b-2 transition-all', currentTab === 'teacher' ? 'border-[#004D2C] text-[#004D2C] bg-emerald-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-[#004D2C]']">
                     👨‍🏫 按老師時間表檢視
                 </button>
-                <button @click="currentTab = 'slot'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'slot' ? 'border-[#004D2C] text-[#004D2C] bg-emerald-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-[#004D2C]']">
+                <button @click="currentTab = 'slot'" :class="['px-4 py-1.5 font-bold text-xs border-b-2 transition-all', currentTab === 'slot' ? 'border-[#004D2C] text-[#004D2C] bg-emerald-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-[#004D2C]']">
                     📊 按排課時段檢視
                 </button>
-                <button @click="currentTab = 'stats'" :class="['px-6 py-2.5 font-bold text-sm border-b-2 transition-all', currentTab === 'stats' ? 'border-[#004D2C] text-[#004D2C] bg-emerald-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-[#004D2C]']">
+                <button @click="currentTab = 'stats'" :class="['px-4 py-1.5 font-bold text-xs border-b-2 transition-all', currentTab === 'stats' ? 'border-[#004D2C] text-[#004D2C] bg-emerald-50/40 rounded-t-lg' : 'border-transparent text-gray-500 hover:text-[#004D2C]']">
                     📈 教學時數統計
                 </button>
             </div>
 
-            <div v-if="currentTab === 'class'" class="bg-emerald-50/30 p-4 rounded-xl mb-4 space-y-3 border border-emerald-100 shrink-0">
-                <div class="flex items-center space-x-4">
-                    <div class="flex items-center space-x-2 flex-1">
-                        <span class="text-sm font-semibold text-gray-700 shrink-0">1. 選擇檢視課程：</span>
-                        <select v-model="viewProgram" class="border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-[#004D2C] font-medium text-gray-700 flex-1">
+            <div v-if="currentTab === 'class'" class="bg-emerald-50/30 p-2 rounded-xl mb-2 space-y-1.5 border border-emerald-100 shrink-0">
+                <div class="flex items-center space-x-3">
+                    <div class="flex items-center space-x-1.5 flex-1">
+                        <span class="text-xs font-bold text-gray-700 shrink-0">1. 課程：</span>
+                        <select v-model="viewProgram" class="border border-gray-300 rounded-lg p-1 text-xs bg-white focus:outline-[#004D2C] font-medium text-gray-700 flex-1">
                             <option v-for="prog in programs" :key="prog" :value="prog">{{ prog }}</option>
                         </select>
                     </div>
-                    <div class="flex items-center space-x-2 w-44">
-                        <span class="text-sm font-semibold text-gray-700 shrink-0">2. 年級：</span>
-                        <select v-model="viewGrade" class="border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-[#004D2C] font-medium text-gray-700 w-full">
+                    <div class="flex items-center space-x-1.5 w-36">
+                        <span class="text-xs font-bold text-gray-700 shrink-0">2. 年級：</span>
+                        <select v-model="viewGrade" class="border border-gray-300 rounded-lg p-1 text-xs bg-white focus:outline-[#004D2C] font-medium text-gray-700 w-full">
                             <option v-for="g in grades" :key="g" :value="g">{{ g }}</option>
                         </select>
                     </div>
-                    <div class="flex items-center space-x-2 w-44">
-                        <span class="text-sm font-semibold text-gray-700 shrink-0">3. 班級：</span>
-                        <select v-model="viewClass" class="border border-gray-300 rounded-lg p-2 text-sm bg-white focus:outline-[#004D2C] font-bold text-[#004D2C] w-full">
+                    <div class="flex items-center space-x-1.5 w-32">
+                        <span class="text-xs font-bold text-gray-700 shrink-0">3. 班級：</span>
+                        <select v-model="viewClass" class="border border-gray-300 rounded-lg p-1 text-xs bg-white focus:outline-[#004D2C] font-bold text-[#004D2C] w-full">
                             <option v-for="cls in availableClassesForView" :key="cls" :value="cls">{{ cls }} 班</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="pt-2 border-t border-emerald-100 flex items-center justify-between bg-amber-50/60 p-2 rounded-lg">
-                    <div class="flex items-center space-x-2 flex-1">
-                        <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-1 rounded">💡 教師時間表快速追蹤</span>
-                        <select v-model="searchTeacher" class="border border-amber-300 rounded-lg p-1.5 text-xs bg-white focus:outline-amber-500 font-semibold text-amber-900 w-64">
+                <div class="pt-1 border-t border-emerald-100 flex items-center justify-between bg-amber-50/60 p-1.5 rounded-lg">
+                    <div class="flex items-center space-x-1.5 flex-1">
+                        <span class="text-[11px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">💡 教師課表快速追蹤</span>
+                        <select v-model="searchTeacher" class="border border-amber-300 rounded-lg p-1 text-xs bg-white focus:outline-amber-500 font-semibold text-amber-900 w-52">
                             <option value="">-- 點擊選擇老師，查看其整週時間表 --</option>
                             <option v-for="t in allTeachersList" :key="t" :value="t">{{ t }} 老師</option>
                         </select>
-                        <span v-if="searchTeacher" class="text-xs text-amber-800 font-medium truncate">
-                            顯示 <span class="underline font-bold">{{ searchTeacher }}</span> 老師的所有排堂（共 {{ getTeacherLessonCount(searchTeacher) }} 節）
+                        <span v-if="searchTeacher" class="text-[11px] text-amber-800 font-medium truncate">
+                            顯示 <span class="underline font-bold">{{ searchTeacher }}</span> 老師（共 {{ getTeacherLessonCount(searchTeacher) }} 節）
                         </span>
                     </div>
-                    <button v-if="searchTeacher" @click="searchTeacher = ''" class="text-xs text-gray-500 hover:text-gray-700 underline shrink-0">清除追蹤</button>
+                    <button v-if="searchTeacher" @click="searchTeacher = ''" class="text-[11px] text-gray-500 hover:text-gray-700 underline shrink-0">清除</button>
                 </div>
             </div>
 
-            <div v-if="currentTab === 'teacher'" class="bg-amber-50/50 p-4 rounded-xl mb-4 border border-amber-200 shrink-0 flex items-center justify-between">
-                <div class="flex items-center space-x-3 flex-1">
-                    <span class="text-sm font-bold text-amber-800 bg-amber-100 px-3 py-1.5 rounded-lg">👨‍🏫 選擇查看教師：</span>
-                    <select v-model="searchTeacher" class="border border-amber-300 rounded-lg p-2 text-sm bg-white focus:outline-amber-500 font-bold text-amber-900 w-72">
+            <div v-if="currentTab === 'teacher'" class="bg-amber-50/50 p-2 rounded-xl mb-2 border border-amber-200 shrink-0 flex items-center justify-between">
+                <div class="flex items-center space-x-2 flex-1">
+                    <span class="text-xs font-bold text-amber-800 bg-amber-100 px-2 py-1 rounded-lg">👨‍🏫 選擇查看教師：</span>
+                    <select v-model="searchTeacher" class="border border-amber-300 rounded-lg p-1 text-xs bg-white focus:outline-amber-500 font-bold text-amber-900 w-64">
                         <option value="">-- 請選擇一位老師查看其個人專屬總時間表 --</option>
                         <option v-for="t in allTeachersList" :key="t" :value="t">{{ t }} 老師</option>
                     </select>
-                    <span v-if="searchTeacher" class="text-sm text-amber-900 font-semibold ml-2">
-                        本學期該教師總課時累計：<span class="text-[#004D2C] font-extrabold text-base underline">{{ getTeacherLessonCount(searchTeacher) }}</span> 節
+                    <span v-if="searchTeacher" class="text-xs text-amber-900 font-semibold ml-2">
+                        本學期總課時累計：<span class="text-[#004D2C] font-extrabold text-sm underline">{{ getTeacherLessonCount(searchTeacher) }}</span> 節
                     </span>
                 </div>
-                <p class="text-xs text-amber-700/80 max-w-sm text-right">此視窗為純課表檢視模式，可總覽該教師在各個課程、年級和班級的所有排堂。</p>
+                <p class="text-[11px] text-amber-700/80 text-right">純檢視模式，總覽該教師在全院的所有排堂。</p>
             </div>
 
-            <div v-if="currentTab === 'slot'" class="bg-emerald-50/20 rounded-xl p-4 mb-4 border border-emerald-100 shrink-0 flex justify-between items-center shadow-sm">
+            <div v-if="currentTab === 'slot'" class="bg-emerald-50/20 rounded-xl p-2 mb-2 border border-emerald-100 shrink-0 flex justify-between items-center shadow-sm">
                 <div>
-                    <h3 class="font-bold text-base text-gray-800 flex items-center">
-                        <span class="w-2.5 h-2.5 rounded-full bg-[#004D2C] mr-2"></span>
+                    <h3 class="font-bold text-sm text-gray-800 flex items-center">
+                        <span class="w-2 h-2 rounded-full bg-[#004D2C] mr-1.5"></span>
                         📊 全院時段課量監控
                     </h3>
-                    <p class="text-xs text-gray-500 mt-0.5">即時統計全院各節次排課分佈密度，紅色代表該時段安排了高於全院總課量 3% 的飽和課程。</p>
                 </div>
-                <div class="bg-[#004D2C] px-4 py-2 rounded-xl text-right text-white shadow-sm">
-                    <span class="text-[11px] block opacity-80">目前全院已排定總課量</span>
-                    <span class="font-mono font-extrabold text-xl">{{ timetable.length }} 節</span>
+                <div class="bg-[#004D2C] px-3 py-1 rounded-lg text-right text-white shadow-sm flex items-center gap-2">
+                    <span class="text-[11px] opacity-80">目前已排總課量</span>
+                    <span class="font-mono font-extrabold text-sm">{{ timetable.length }} 節</span>
                 </div>
             </div>
 
@@ -280,20 +284,20 @@
                     </div>
                 </div>
 
-           <div v-if="currentTab !== 'stats'" class="grid grid-cols-8 gap-2 h-full min-h-[620px]">
-                    <div class="bg-gray-100 p-3 text-center font-extrabold text-gray-600 rounded-lg flex items-center justify-center border text-sm">節數 / 時間</div>
-                    <div v-for="(dayName, dayIdx) in ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']" :key="dayIdx" class="bg-slate-100 p-3 text-center font-extrabold text-slate-700 rounded-lg flex items-center justify-center border text-sm">
+           <div v-if="currentTab !== 'stats'" class="grid grid-cols-8 gap-1 flex-1 overflow-y-auto">
+                    <div class="bg-gray-100 p-1.5 text-center font-extrabold text-gray-600 rounded-lg flex items-center justify-center border text-xs">節數 / 時間</div>
+                    <div v-for="(dayName, dayIdx) in ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']" :key="dayIdx" class="bg-slate-100 p-1.5 text-center font-extrabold text-slate-700 rounded-lg flex items-center justify-center border text-xs">
                         {{ dayName }}
                     </div>
 
                     <template v-for="slot in timeSlots" :key="slot.num">
-                        <div class="bg-gray-50 border p-2 flex flex-col justify-center items-center rounded-lg text-center shadow-sm">
-                            <span class="font-extrabold text-gray-700 text-sm">第 {{ slot.num }} 節</span>
-                            <span class="text-xs font-bold text-indigo-700 mt-1 font-mono bg-white px-1.5 py-0.5 rounded border">{{ slot.time }}</span>
+                        <div class="bg-gray-50 border p-1 flex flex-col justify-center items-center rounded-lg text-center shadow-sm">
+                            <span class="font-extrabold text-gray-700 text-xs">第 {{ slot.num }} 節</span>
+                            <span class="text-[10px] font-bold text-indigo-700 mt-0.5 font-mono bg-white px-1 py-0.5 rounded border">{{ slot.time }}</span>
                         </div>
 
                         <div v-for="day in 7" :key="day" 
-                             class="border border-dashed border-gray-300 rounded-xl p-1 bg-gray-50/20 hover:bg-emerald-50/30 transition-all flex flex-col justify-start min-h-[95px]" 
+                             class="border border-dashed border-gray-300 rounded-xl p-0.5 bg-gray-50/20 hover:bg-emerald-50/30 transition-all flex flex-col justify-start min-h-[66px]" 
                              @dragover.prevent 
                              @drop="currentTab === 'class' ? onDrop($event, day, slot.num) : null">
                             
@@ -457,7 +461,82 @@
                 </div>
             </div>
         </div>
+<div v-if="showPrintModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-5 flex flex-col max-h-[85vh]">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h3 class="text-lg font-bold text-gray-800 flex items-center">
+                        <span>🖨️ 選擇要導出 PDF 的班級課表</span>
+                    </h3>
+                    <button @click="showPrintModal = false" class="text-gray-400 hover:text-gray-600 font-bold text-xl">&times;</button>
+                </div>
+                
+                <div class="flex justify-between items-center mb-3 bg-gray-50 p-2 rounded-lg text-xs">
+                    <span class="text-gray-600">已選擇 <span class="text-indigo-600 font-bold text-sm">{{ selectedPrintClasses.length }}</span> 個班級</span>
+                    <div class="space-x-2">
+                        <button @click="selectAllPrintClasses" class="text-indigo-600 hover:underline font-semibold">全選全部</button>
+                        <button @click="selectedPrintClasses = []" class="text-red-500 hover:underline font-semibold">清除選擇</button>
+                    </div>
+                </div>
 
+                <div class="flex-1 overflow-y-auto space-y-4 my-2 pr-1">
+                    <div v-for="(gradeList, progCode) in availableClassesInPool" :key="progCode" class="border border-gray-100 rounded-lg p-3 bg-slate-50/50">
+                        <h4 class="font-bold text-sm text-[#004D2C] mb-2 border-b pb-1">{{ programs[progCode] || progCode }}</h4>
+                        <div class="space-y-2">
+                            <div v-for="(classes, grade) in gradeList" :key="grade" class="flex items-start">
+                                <span class="text-xs font-bold text-gray-500 w-12 pt-0.5 shrink-0">{{ grade }}:</span>
+                                <div class="flex flex-wrap gap-2 flex-1">
+                                    <label v-for="cls in classes" :key="cls" class="inline-flex items-center bg-white px-2 py-1 rounded border shadow-sm cursor-pointer hover:bg-indigo-50/50 transition text-xs">
+                                        <input type="checkbox" :value="`${progCode}|${grade}|${cls}`" v-model="selectedPrintClasses" class="rounded text-indigo-600 mr-1.5 focus:ring-indigo-500">
+                                        {{ cls }}班
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-2 border-t pt-3 mt-3">
+                    <button @click="showPrintModal = false" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold text-xs rounded-lg transition">取消</button>
+                    <button @click="startBatchExportPDF" :disabled="selectedPrintClasses.length === 0" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold text-xs rounded-lg shadow transition">
+                        🚀 開始生成並導出 PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="pdf-render-template" class="hidden">
+            <div v-for="pdfData in pdfQueueData" :key="pdfData.title" :id="`pdf-page-${pdfData.idStr}`" class="p-8 bg-white" style="width: 297mm; min-height: 210mm; font-family: sans-serif; box-sizing: border-box; page-break-after: always;">
+                <div class="flex justify-between items-end border-b-2 border-[#004D2C] pb-3 mb-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-[#004D2C] tracking-wide">澳門城市大學 金融學院</h1>
+                        <p class="text-[10px] text-gray-400 font-mono uppercase tracking-normal mt-0.5">City University of Macau | Faculty of Finance</p>
+                    </div>
+                    <div class="text-right">
+                        <h2 class="text-lg font-bold text-gray-800">{{ pdfData.title }} 課表</h2>
+                        <p class="text-[10px] text-gray-400 font-mono">Generated: 2026-06-04</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-8 gap-1.5 border border-gray-300 p-2 rounded-xl bg-slate-50/30">
+                    <div class="bg-gray-100 p-2 text-center font-bold text-gray-600 rounded border text-xs">節數 / 時間</div>
+                    <div v-for="dayName in ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']" class="bg-slate-100 p-2 text-center font-bold text-slate-700 rounded border text-xs">{{ dayName }}</div>
+
+                    <template v-for="slot in timeSlots">
+                        <div class="bg-gray-50 border p-1.5 flex flex-col justify-center items-center rounded text-center shadow-sm min-h-[65px]">
+                            <span class="font-bold text-gray-700 text-xs">第 {{ slot.num }} 節</span>
+                            <span class="text-[9px] font-bold text-indigo-700 mt-0.5 font-mono bg-white px-1 rounded border">{{ slot.time }}</span>
+                        </div>
+
+                        <div v-for="day in 7" class="border border-dashed border-gray-300 rounded bg-white p-1 flex flex-col justify-start min-h-[65px]">
+                            <div v-for="item in pdfData.grid[slot.num][day]" class="p-1 rounded mb-1 border text-[10px] leading-tight flex flex-col justify-between shadow-xs bg-slate-50 border-slate-200">
+                                <div class="font-bold text-gray-800">{{ item.block.subject }}</div>
+                                <div class="text-right font-medium text-gray-500 mt-0.5">授課: {{ item.block.teacher }}</div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -559,6 +638,10 @@
                 });
 
                 const showModal = ref(false);
+// 🆕 新增：PDF 打印多選視窗的狀態控制與數據貯存
+const showPrintModal = ref(false);
+const selectedPrintClasses = ref([]);
+const pdfQueueData = ref([]);
                 const formCommon = ref({ program: "應用經濟學學士學位課程", grade: "大一" });
                 const formRows = ref([
                     { subjectCode: "", subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }
@@ -656,7 +739,103 @@
                 function getTeacherLessonCount(teacherName) {
                     return timetable.value.filter(item => item.block.teacher === teacherName).length;
                 }
+// 🆕 新增：打開打印多選彈窗
+                function openPrintModal() {
+                    selectedPrintClasses.value = [];
+                    showPrintModal.value = true;
+                }
 
+                // 🆕 新增：全選全部班級
+                function selectAllPrintClasses() {
+                    const arr = [];
+                    Object.entries(availableClassesInPool.value).forEach(([progCode, gradeList]) => {
+                        Object.entries(gradeList).forEach(([grade, classes]) => {
+                            classes.forEach(cls => {
+                                arr.push(`${progCode}|${grade}|${cls}`);
+                            });
+                        });
+                    });
+                    selectedPrintClasses.value = arr;
+                }
+
+                // 🆕 新增：核心批量生成 PDF 並逐個下載
+                function startBatchExportPDF() {
+                    if (selectedPrintClasses.value.length === 0) return;
+                    
+                    // 1. 組裝要打印的各班級課表矩陣數據
+                    const queue = [];
+                    selectedPrintClasses.value.forEach(classKey => {
+                        const [prog, grade, cls] = classKey.split('|');
+                        const progName = programs[prog] || prog;
+                        const titleText = `${progName} ${grade} ${cls}班`;
+                        const idStr = `${prog}-${grade}-${cls}`.replace(/\s+/g, '_');
+                        
+                        // 初始化該班級的 8節 X 7天 課表格子
+                        const gridData = {};
+                        for (let s = 1; s <= 8; s++) {
+                            gridData[s] = {};
+                            for (let d = 1; d <= 7; d++) {
+                                gridData[s][d] = [];
+                            }
+                        }
+                        
+                        // 篩選出屬於該班級的已排課拼圖
+                        timetable.value.forEach(item => {
+                            if (item.block.program === prog && item.block.grade === grade && item.block.className === cls) {
+                                if (gridData[item.slot] && gridData[item.slot][item.day]) {
+                                    gridData[item.slot][item.day].push(item);
+                                }
+                            }
+                        });
+                        
+                        queue.push({
+                            idStr: idStr,
+                            title: titleText,
+                            filename: `${titleText}課表.pdf`,
+                            grid: gridData
+                        });
+                    });
+                    
+                    pdfQueueData.value = queue;
+                    showPrintModal.value = false;
+                    
+                    // 2. 利用 Vue 的 nextTick 或小延遲，等待 HTML 渲染完成後，調用 html2pdf 逐個導出
+                    alert(`⏳ 系統即將開始批量打包生成 ${queue.length} 個班級的 PDF 課表，請在瀏覽器彈出下載提示時予以允許。`);
+                    
+                    setTimeout(() => {
+                        // 隱藏的範本容器短暫解除隱藏以供 html2pdf 抓取鏡像
+                        const container = document.getElementById('pdf-render-template');
+                        container.classList.remove('hidden');
+                        
+                        let promiseChain = Promise.resolve();
+                        
+                        queue.forEach(pdfItem => {
+                            promiseChain = promiseChain.then(() => {
+                                const element = document.getElementById(`pdf-page-${pdfItem.idStr}`);
+                                const opt = {
+                                    margin:       0,
+                                    filename:     pdfItem.filename,
+                                    image:        { type: 'jpeg', quality: 0.98 },
+                                    html2canvas:  { scale: 2, useCORS: true, logging: false },
+                                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' } // 橫向橫版列印
+                                };
+                                
+                                return html2pdf().set(opt).from(element).save();
+                            });
+                        });
+                        
+                        // 全部完成後重新隱藏範本容器
+                        promiseChain.then(() => {
+                            container.classList.add('hidden');
+                            pdfQueueData.value = [];
+                            alert('🎉 所有班級的 PDF 課表已全部單獨導出完成！');
+                        }).catch(err => {
+                            console.error(err);
+                            container.classList.add('hidden');
+                        });
+                        
+                    }, 500);
+                }
                 function openModal() {
                     formCommon.value = { program: "應用經濟學學士學位課程", grade: "大一" };
                     formRows.value = [{ subjectCode: "", subject: "", teacher: "", classStart: "A", classEnd: "C", lessonsPerWeek: 2 }];
@@ -984,14 +1163,15 @@ Object.keys(sheetsMap).sort((a, b) => {
 
                 function clearAllSchedules() { if (confirm("確定要清空嗎？")) { unassignedBlocks.value = []; timetable.value = []; } }
 
-                return {
+return {
                     timeSlots, programs, programCodes, getProgramCode, getColorClass, grades, unassignedBlocks, timetable,
                     filterProgram, filterGrade, filterClass, viewProgram, viewGrade, viewClass,
                     searchTeacher, allTeachersList, checkTeacherHasClassElsewhere, getTeacherElsewhereDetails, getTeacherLessonCount,
                     showModal, formCommon, formRows, availableClassesInPool, availableClassesForView, filteredUnassignedBlocks, previewTotalBlocksCount,
                     openModal, addFormRow, removeFormRow, onDragStartFromPool, onDragStartFromGrid, onDrop, 
                     getCellBlocks, getTeacherCellBlocks, getSlotAllBlocks, getSlotDensityClass, removeSchedule, deleteUnassignedBlock, generateBlocks, exportToExcel, exportData, importData, clearAllSchedules,
-                    currentTab, teacherStatsList
+                    currentTab, teacherStatsList,
+                    showPrintModal, selectedPrintClasses, pdfQueueData, openPrintModal, selectAllPrintClasses, startBatchExportPDF
                 };
             }
         }).mount('#app');
