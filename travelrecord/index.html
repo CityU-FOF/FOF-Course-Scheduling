@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>研究生在澳逗留天數統計系統</title>
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-base-200 min-h-screen p-6 text-base-content">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <div class="navbar bg-base-100 shadow-xl rounded-box">
+            <div class="flex-1 px-2 mx-2 text-xl font-bold text-primary">🇲🇴 研究生在澳逗留天數統計系統</div>
+            <div class="flex-none">
+                <span class="badge badge-ghost font-mono">v1.0.0</span>
+            </div>
+        </div>
+
+        <div class="collapse collapse-arrow bg-base-100 shadow-xl rounded-box">
+            <input type="checkbox" checked /> 
+            <div class="collapse-title text-lg font-medium border-b border-base-200 flex items-center gap-2">
+                <span>📅 步驟一：配置不計入之日期（公眾假期 / 停課日）</span>
+            </div>
+            <div class="collapse-content p-4 space-y-4">
+                <div class="flex flex-wrap gap-4 items-end">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">選擇日期</span></label>
+                        <input type="date" id="holidayDate" class="input input-bordered w-full max-w-xs" />
+                    </div>
+                    <div class="form-control">
+                        <label class="label"><span class="label-text font-semibold">日期描述</span></label>
+                        <input type="text" id="holidayDesc" placeholder="例如：中秋節 / 8號風球停課" class="input input-bordered w-full max-w-xs" />
+                    </div>
+                    <button onclick="addHoliday()" class="btn btn-primary">➕ 新增排除日期</button>
+                </div>
+
+                <div class="overflow-x-auto max-h-40 border border-base-200 rounded-lg">
+                    <table class="table table-sm table-pin-rows">
+                        <thead>
+                            <tr>
+                                <th>排除日期</th>
+                                <th>描述說明</th>
+                                <th class="w-20">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holidayTableBody">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-lg mb-2">📁 步驟二：批量上傳學生出入境紀錄 PDF</h2>
+                <div class="flex items-center gap-4">
+                    <input type="file" id="pdfFiles" multiple accept=".pdf" class="file-input file-input-bordered file-input-primary w-full max-w-md" />
+                    <button onclick="processPDFFiles()" id="btnProcess" class="btn btn-accent text-white">⚡ 開始批量統計</button>
+                    <button onclick="exportToExcel()" id="btnExport" class="btn btn-success text-white" disabled>📥 導出總表 (Excel)</button>
+                </div>
+                <div id="progressContainer" class="hidden space-y-2 mt-4">
+                    <progress id="progressBar" class="progress progress-primary w-full" value="0" max="100"></progress>
+                    <p id="progressText" class="text-sm text-gray-500">正在準備處理...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title text-lg mb-2">📋 步驟三：統計結果匯總表</h2>
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full shadow-inner border border-base-200 rounded-lg">
+                        <thead class="bg-base-300">
+                            <tr>
+                                <th>學號</th>
+                                <th>學生姓名</th>
+                                <th>總逗留天數 (已扣假期)</th>
+                                <th>留服認證狀態 (≥90天)</th>
+                                <th>差額 / 備註</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center text-gray-400 py-8">暫無數據，請先上傳 PDF 文件並點擊開始統計</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 設定 PDF.js 的 Worker 鏡像，確保能在前端正常解析 PDF
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // 全局變量儲存
+        let exclusionDates = new Set(); // 儲存需要排除的日期字串 (YYYY-MM-DD)
+        let holidayDescriptions = {};   // 儲存日期的描述 { "2026-10-01": "國慶節" }
+        let studentResults = [];        // 儲存所有學生的最終統計結果
+
+        // ==========================================
+        // 🛠️ 模塊一：排除日期管理（假期/惡劣天氣）
+        // ==========================================
+        
+        function addHoliday() {
+            const dateInput = document.getElementById('holidayDate').value;
+            const descInput = document.getElementById('holidayDesc').value.trim();
+            
+            if (!dateInput) {
+                alert('請先選擇日期！');
+                return;
+            }
+            
+            if (exclusionDates.has(dateInput)) {
+                alert('該日期已存在於排除清單中。');
+                return;
+            }
+
+            exclusionDates.add(dateInput);
+            holidayDescriptions[dateInput] = descInput || '未命名假期';
+            
+            updateHolidayTable();
+            
+            // 清空輸入框
+            document.getElementById('holidayDate').value = '';
+            document.getElementById('holidayDesc').value = '';
+        }
+
+        function removeHoliday(dateStr) {
+            exclusionDates.delete(dateStr);
+            delete holidayDescriptions[dateStr];
+            updateHolidayTable();
+        }
+
+        function updateHolidayTable() {
+            const tbody = document.getElementById('holidayTableBody');
+            tbody.innerHTML = '';
+            
+            if (exclusionDates.size === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="text-center text-gray-400 py-4">未設置任何排除日期</td></tr>`;
+                return;
+            }
+
+            // 排序日期後顯示
+            const sortedDates = Array.from(exclusionDates).sort();
+            sortedDates.forEach(date => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="font-mono">${date}</td>
+                    <td><span class="badge badge-ghost">${holidayDescriptions[date]}</span></td>
+                    <td><button onclick="removeHoliday('${date}')" class="btn btn-error btn-xs text-white">刪除</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 頁面初始化時加載一次空表
+        updateHolidayTable();
+
+
+        // ==========================================
+        // 🔬 模塊二：PDF 文字提取與核心算法（重點優化區）
+        // ==========================================
+        
+        async function processPDFFiles() {
+            const fileInput = document.getElementById('pdfFiles');
+            const files = fileInput.files;
+            
+            if (files.length === 0) {
+                alert('請先選擇至少一個學生的出入境紀錄 PDF 文件！');
+                return;
+            }
+
+            // 初始化進度條
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            progressContainer.classList.remove('hidden');
+            
+            studentResults = []; // 清空上一次的結果
+            
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                // 更新進度條
+                let percent = Math.round(((i) / files.length) * 100);
+                progressBar.value = percent;
+                progressText.innerText = `正在處理 (${i+1}/${files.length}): ${file.name}`;
+
+                try {
+                    const textContent = await extractTextFromPDF(file);
+                    const parsedData = analyzePassportText(textContent, file.name);
+                    
+                    if (parsedData) {
+                        // 計算該同學的實際留澳天數
+                        const finalDays = calculateStayDays(parsedData.stayDates);
+                        studentResults.push({
+                            id: parsedData.studentId,
+                            name: parsedData.studentName,
+                            days: finalDays,
+                            fileName: file.name
+                        });
+                    }
+                } catch (error) {
+                    console.error(`解析文件失敗: ${file.name}`, error);
+                    // 即使失敗也記錄，方便行政人員排查
+                    studentResults.push({
+                        id: '解析失敗',
+                        name: file.name,
+                        days: 0,
+                        fileName: file.name,
+                        error: true
+                    });
+                }
+            }
+
+            // 處理完成
+            progressBar.value = 100;
+            progressText.innerText = `✅ 所有文件處理完成！共成功統計 ${studentResults.length} 筆數據。`;
+            
+            renderResultTable();
+            document.getElementById('btnExport').removeAttribute('disabled');
+        }
+
+        // 使用 PDF.js 提取 PDF 內所有文字
+        async function extractTextFromPDF(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(item => item.str).join(' ');
+                fullText += pageText + '\n';
+            }
+            return fullText;
+        }
+
+        /**
+         * 🔍 文本正則表達式匹配（最需要根據你們的 PDF 格式微調的部分）
+         * 這裡假設 PDF 包含姓名、學號以及多個 "YYYY/MM/DD" 或 "YYYY-MM-DD" 的日期
+         */
+        function analyzePassportText(text, fileName) {
+            // 1. 嘗試從文本中匹配學號和姓名（這裏使用常見的範例規則，可根據實際PDF格式修改）
+            // 如果 PDF 內找不到，預設直接用「文件名」作為學號/姓名
+            let studentName = "未知姓名";
+            let studentId = "未知學號";
+
+            // 範例正則：匹配 "姓名: 張三" 或 "Name: Tom"
+            const nameMatch = text.match(/(?:姓名|Name)\s*[:：]\s*([^\s]+)/);
+            if (nameMatch) studentName = nameMatch[1];
+            
+            // 範例正則：匹配 8-10 位的學號
+            const idMatch = text.match(/(?:學號|Student ID|No)\s*[:：]\s*([A-Za-z0-9]+)/) || text.match(/\b\d{8,10}\b/);
+            if (idMatch) studentId = idMatch[1];
+
+            // 如果從 PDF 內容裡實在挖不到，就用文件名兜底拆分（例如 "B230901-張三.pdf"）
+            if (studentName === "未知姓名" && studentId === "未知學號") {
+                const cleanName = fileName.replace('.pdf', '');
+                const parts = cleanName.split(/[-_ ]+/);
+                if (parts.length >= 2) {
+                    studentId = parts[0];
+                    studentName = parts[1];
+                } else {
+                    studentName = cleanName;
+                }
+            }
+
+            // 2. 提取文本中所有的日期 (匹配 YYYY/MM/DD 或 YYYY-MM-DD)
+            const dateRegex = /\b(\d{4})[-/](\d{2})[-/](\d{2})\b/g;
+            let match;
+            let stayDates = new Set(); // 使用 Set 去重，只要當天有出入境紀錄就先記下來
+
+            while ((match = dateRegex.exec(text)) !== null) {
+                // 標準化格式為 YYYY-MM-DD
+                const formattedDate = `${match[1]}-${match[2]}-${match[3]}`;
+                stayDates.add(formattedDate);
+            }
+
+            return {
+                studentId,
+                studentName,
+                stayDates: Array.from(stayDates)
+            };
+        }
+
+        /**
+         * 🧮 核心天數計算邏輯
+         * 傳入學生有紀錄的所有日期清單，比對並扣除行政配置的假期
+         */
+        function calculateStayDays(rawDates) {
+            let validDaysCount = 0;
+
+            rawDates.forEach(dateStr => {
+                // 🔴 關鍵比對：如果學生的這個出入境日期，包含在用戶設定的排除（假期/停課）名單中，則不計入
+                if (exclusionDates.has(dateStr)) {
+                    return; // 跳過，不加天數
+                }
+                
+                // 如果不是假期，則算作有效的在澳逗留天數 1 天
+                validDaysCount++;
+            });
+
+            return validDaysCount;
+        }
+
+
+        // ==========================================
+        // 🎨 模塊三：前端表格渲染
+        // ==========================================
+        
+        function renderResultTable() {
+            const tbody = document.getElementById('resultTableBody');
+            tbody.innerHTML = '';
+
+            studentResults.forEach(student => {
+                const tr = document.createElement('tr');
+                
+                // 判斷是否滿足留服認證的 90 天要求
+                const isTargetMet = student.days >= 90;
+                const gap = 90 - student.days;
+
+                let statusBadge = '';
+                let remarkText = '';
+
+                if (student.error) {
+                    tr.classList.add('bg-error/10', 'text-error');
+                    statusBadge = `<span class="badge badge-error text-white">解析出錯</span>`;
+                    remarkText = '無法讀取 PDF 內容，請手動檢查文件格式';
+                } else if (isTargetMet) {
+                    statusBadge = `<span class="badge badge-success text-white">✅ 達標</span>`;
+                    remarkText = `<span class="text-success font-semibold">符合要求</span>`;
+                } else {
+                    // 未達標則整行高亮，並顯示差多少天
+                    tr.classList.add('bg-hover', 'text-error font-medium');
+                    statusBadge = `<span class="badge badge-error text-white">❌ 未達標</span>`;
+                    remarkText = `⚠️ 還差 <span class="underline font-bold">${gap}</span> 天`;
+                }
+
+                tr.innerHTML = `
+                    <td class="font-mono">${student.id}</td>
+                    <td>${student.name}</td>
+                    <td class="font-bold text-center">${student.days} 天</td>
+                    <td>${statusBadge}</td>
+                    <td>${remarkText}</td>
+                `;
+                
+                tbody.appendChild(tr);
+            });
+        }
+
+
+        // ==========================================
+        // 📊 模塊四：Excel 數據導出功能
+        // ==========================================
+        
+        function exportToExcel() {
+            if (studentResults.length === 0) return;
+
+            // 1. 格式化準備寫入 Excel 的數據
+            const excelData = studentResults.map(s => {
+                const gap = 90 - s.days;
+                return {
+                    '學號': s.id,
+                    '學生姓名': s.name,
+                    '總逗留天數 (已扣除假期)': s.days,
+                    '是否滿足90天要求': s.days >= 90 ? '是' : '否',
+                    '差額天數 / 備註': s.days >= 90 ? '符合認證標準' : `還差 ${gap} 天`
+                };
+            });
+
+            // 2. 創建 Excel 工作表
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "研究生逗留天數統計");
+
+            // 3. 調整欄寬，讓表格更好看
+            const max_cols = [
+                { wch: 15 }, // 學號
+                { wch: 15 }, // 姓名
+                { wch: 25 }, // 總逗留天數
+                { wch: 20 }, // 是否滿足
+                { wch: 25 }  // 備註
+            ];
+            worksheet['!cols'] = max_cols;
+
+            // 4. 下載 Excel 文件
+            const today = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(workbook, `研究生在澳逗留天數匯總表_${today}.xlsx`);
+        }
+    </script>
+</body>
+</html>
