@@ -164,7 +164,7 @@
             <p class="text-xs text-gray-500 mb-3">學生：<span id="detailStudentInfo" class="font-bold text-slate-800 text-sm"></span></p>
             
             <div class="bg-amber-50 border border-amber-200 text-amber-900 rounded p-2.5 text-xs mb-3 leading-relaxed">
-                💡 <b>日曆天數打卡規則</b>：系統已修正「當天往返去重」與「多頁完整讀取」邏輯。任何出入境當天均強制點亮計入，區間內日期自動補齊，並依照左側配置剔除週末和公眾假期。
+                💡 <b>日曆天數打卡規則</b>：系統採用穩健流機制。任何出入境當天均直接計入，無紀錄之空白天不自動補齊。若某日僅有單向「出境」或「入境」動作，將標記黃色警告供管理員人工判定。
             </div>
 
             <div class="flex-grow overflow-y-auto border rounded bg-white shadow-inner">
@@ -179,7 +179,7 @@
                         </tr>
                     </thead>
                     <tbody id="detailLogTableBody" class="font-mono">
-                        </tbody>
+                    </tbody>
                 </table>
             </div>
             
@@ -386,20 +386,18 @@
             }
         }
 
-        // 🎯 🔥【重大BUG修復】：加上了關鍵的 await 確保 13 頁文本全部被讀取出來
         async function extractTextFromPDF(file) {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             let fullText = '';
             for (let i = 1; i <= pdf.numPages; i++) {
                 const page = await pdf.getPage(i); 
-                const content = await page.getTextContent(); // 🌟 核心修復：補上了 await 關鍵字！
+                const content = await page.getTextContent(); 
                 fullText += content.items.map(item => item.str).join(' ') + '\n';
             }
             return fullText;
         }
 
-        // 🧠 🔥【全面重構】：就近模糊匹配演算法，完美解決單元格換行錯位
         function analyzeMainlandPassportText(text, fileName) {
             let studentName = ""; let studentId = "";
             
@@ -475,132 +473,116 @@
             };
         }
 
-        // 📆 核心日曆天數打卡及區間補齊邏輯
-     // 📆 還原基本步：只計算當天出入境紀錄 + 異常單向狀態標註
-function generateStudentStayReport(student) {
-    let dailyStatusMap = new Map(); 
-    let totalValid = 0;
-    let yearCounts = {};
-    academicYears.forEach(y => yearCounts[y.name] = 0);
+        function generateStudentStayReport(student) {
+            let dailyStatusMap = new Map(); 
+            let totalValid = 0;
+            let yearCounts = {};
+            academicYears.forEach(y => yearCounts[y.name] = 0);
 
-    // 1. 將所有紀錄按日期升序排列
-    const actions = [...(student.rawActions || [])];
-    actions.sort((a, b) => new Date(a.date) - new Date(b.date));
+            const actions = [...(student.rawActions || [])];
+            actions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // 2. 按日期分組，統計每一天的出入境動作
-    let dateGroup = {};
-    actions.forEach(item => {
-        if (!dateGroup[item.date]) {
-            dateGroup[item.date] = [];
-        }
-        dateGroup[item.date].push(item.action);
-    });
+            let dateGroup = {};
+            actions.forEach(item => {
+                if (!dateGroup[item.date]) { dateGroup[item.date] = []; }
+                dateGroup[item.date].push(item.action);
+            });
 
-    // 紀錄該生是否含有任何不完整（單向）的紀錄
-    let hasMissingWarning = false;
+            let hasMissingWarning = false;
 
-    // 3. 遍歷有紀錄的日子進行打卡與狀態判定
-    Object.keys(dateGroup).forEach(dateStr => {
-        const dayActions = dateGroup[dateStr];
-        const hasIn = dayActions.includes("入境");
-        const hasOut = dayActions.includes("出境");
-        
-        let infoStr = "";
-        let isImperfect = false;
+            Object.keys(dateGroup).forEach(dateStr => {
+                const dayActions = dateGroup[dateStr];
+                const hasIn = dayActions.includes("入境");
+                const hasOut = dayActions.includes("出境");
+                
+                let infoStr = "";
+                let isImperfect = false;
 
-        // 判定當天是完整往返還是單向紀錄
-        if (hasIn && hasOut) {
-            infoStr = "當天有完整出入境紀錄";
-        } else if (hasOut) {
-            infoStr = "⚠️ 當天僅有【出境】紀錄 (可能跨天留駐，需人工核對)";
-            isImperfect = true;
-            hasMissingWarning = true;
-        } else if (hasIn) {
-            infoStr = "⚠️ 當天僅有【入境】紀錄 (可能跨天留駐，需人工核對)";
-            isImperfect = true;
-            hasMissingWarning = true;
-        }
-
-        // 基本步：只要有紀錄，當天默認先計入
-        dailyStatusMap.set(dateStr, { 
-            type: 'auto', 
-            status: '✅ 計入', 
-            info: infoStr,
-            isImperfect: isImperfect
-        });
-    });
-
-    // 4. 規則二：套用假期、週末和學年過濾
-    dailyStatusMap.forEach((data, dateStr) => {
-        if (data.status === '✅ 計入') {
-            let parts = dateStr.split('-');
-            let dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-            let dayOfWeek = dateObj.getDay();
-
-            // 剔除六日
-            if (dayOfWeek === 0 || dayOfWeek === 6) {
-                let weekStr = dayOfWeek === 0 ? "星期日" : "星期六";
-                dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `週末六日 (${weekStr})` });
-                return;
-            }
-            // 剔除公眾假期
-            if (exclusionDates.has(dateStr)) {
-                dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `公眾假期: ${holidayDescriptions[dateStr]}` });
-                return;
-            }
-            
-            // 檢查是否在學年區間內
-            let yearBelongs = null;
-            if (academicYears.length > 0) {
-                for (let year of academicYears) {
-                    if (dateStr >= year.start && dateStr <= year.end) { yearBelongs = year.name; break; }
+                if (hasIn && hasOut) {
+                    infoStr = "當天有完整出入境紀錄";
+                } else if (hasOut) {
+                    infoStr = "⚠️ 當天僅有【出境】紀錄 (可能跨天留駐，需人工核對)";
+                    isImperfect = true;
+                    hasMissingWarning = true;
+                } else if (hasIn) {
+                    infoStr = "⚠️ 當天僅有【入境】紀錄 (可能跨天留駐，需人工核對)";
+                    isImperfect = true;
+                    hasMissingWarning = true;
                 }
-                if (!yearBelongs) {
-                    dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: "不在任何已配置學年區間內" });
-                    return;
+
+                dailyStatusMap.set(dateStr, { 
+                    type: 'auto', 
+                    status: '✅ 計入', 
+                    info: infoStr,
+                    isImperfect: isImperfect
+                });
+            });
+
+            dailyStatusMap.forEach((data, dateStr) => {
+                if (data.status === '✅ 計入') {
+                    let parts = dateStr.split('-');
+                    let dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                    let dayOfWeek = dateObj.getDay();
+
+                    if (dayOfWeek === 0 || dayOfWeek === 6) {
+                        let weekStr = dayOfWeek === 0 ? "星期日" : "星期六";
+                        dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `週末六日 (${weekStr})` });
+                        return;
+                    }
+                    if (exclusionDates.has(dateStr)) {
+                        dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `公眾假期: ${holidayDescriptions[dateStr]}` });
+                        return;
+                    }
+                    
+                    let yearBelongs = null;
+                    if (academicYears.length > 0) {
+                        for (let year of academicYears) {
+                            if (dateStr >= year.start && dateStr <= year.end) { yearBelongs = year.name; break; }
+                        }
+                        if (!yearBelongs) {
+                            dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: "不在任何已配置學年區間內" });
+                            return;
+                        }
+                    }
+                    data.yearBelongs = yearBelongs;
                 }
+            });
+
+            if (student.manualOverrides) {
+                Object.keys(student.manualOverrides).forEach(dateStr => {
+                    let manualStatus = student.manualOverrides[dateStr]; 
+                    let yearBelongs = null;
+                    for (let year of academicYears) {
+                        if (dateStr >= year.start && dateStr <= year.end) { yearBelongs = year.name; break; }
+                    }
+                    if (manualStatus === '✅ 手動計入') {
+                        dailyStatusMap.set(dateStr, { type: 'manual', status: '✅ 計入', info: "管理員手動核准計入", yearBelongs: yearBelongs, isImperfect: false });
+                    } else if (manualStatus === '❌ 手動排除') {
+                        dailyStatusMap.set(dateStr, { type: 'manual', status: '❌ 排除', info: "管理員手動剔除不計", isImperfect: false });
+                    }
+                });
             }
-            data.yearBelongs = yearBelongs;
+
+            dailyStatusMap.forEach((data, dateStr) => {
+                if (data.status === '✅ 計入') {
+                    totalValid++;
+                    if (data.yearBelongs) { 
+                        yearCounts[data.yearBelongs] = (yearCounts[data.yearBelongs] || 0) + 1; 
+                    }
+                }
+            });
+
+            let sortedReportLines = [];
+            dailyStatusMap.forEach((data, dateStr) => { sortedReportLines.push({ date: dateStr, ...data }); });
+            sortedReportLines.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            return { 
+                total: totalValid, 
+                yearCounts: yearCounts, 
+                reportLines: sortedReportLines,
+                hasMissingWarning: hasMissingWarning 
+            };
         }
-    });
-
-    // 5. 規則三：套用管理員的手動修正覆蓋
-    if (student.manualOverrides) {
-        Object.keys(student.manualOverrides).forEach(dateStr => {
-            let manualStatus = student.manualOverrides[dateStr]; 
-            let yearBelongs = null;
-            for (let year of academicYears) {
-                if (dateStr >= year.start && dateStr <= year.end) { yearBelongs = year.name; break; }
-            }
-            if (manualStatus === '✅ 手動計入') {
-                dailyStatusMap.set(dateStr, { type: 'manual', status: '✅ 計入', info: "管理員手動核准計入", yearBelongs: yearBelongs, isImperfect: false });
-            } else if (manualStatus === '❌ 手動排除') {
-                dailyStatusMap.set(dateStr, { type: 'manual', status: '❌ 排除', info: "管理員手動剔除不計", isImperfect: false });
-            }
-        });
-    }
-
-    // 6. 統計最終有效天數
-    dailyStatusMap.forEach((data, dateStr) => {
-        if (data.status === '✅ 計入') {
-            totalValid++;
-            if (data.yearBelongs) { 
-                yearCounts[data.yearBelongs] = (yearCounts[data.yearBelongs] || 0) + 1; 
-            }
-        }
-    });
-
-    let sortedReportLines = [];
-    dailyStatusMap.forEach((data, dateStr) => { sortedReportLines.push({ date: dateStr, ...data }); });
-    sortedReportLines.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    return { 
-        total: totalValid, 
-        yearCounts: yearCounts, 
-        reportLines: sortedReportLines,
-        hasMissingWarning: hasMissingWarning // 將警告狀態傳遞給主介面
-    };
-}
 
         function showDetailModal(id) {
             activeStudentIdForModal = id;
@@ -676,7 +658,7 @@ function generateStudentStayReport(student) {
             tbody.innerHTML = ''; const currentYears = getAcademicYearsConfig();
 
             if (studentOrder.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${6 + currentYears.length}" class="text-center text-gray-400 py-12 text-sm">請導入 Excel 學生名單以生成底表。</td></tr>`; return;
+                tbody.innerHTML = `<tr><td colspan="${5 + currentYears.length}" class="text-center text-gray-400 py-12 text-sm">請導入 Excel 學生名單以生成底表。</td></tr>`; return;
             }
 
             studentOrder.forEach((id, index) => {
@@ -697,7 +679,6 @@ function generateStudentStayReport(student) {
 
                     totalDaysDisplay = `<button onclick="showDetailModal('${id}')" class="btn btn-xs bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 font-bold" title="點擊查看日期明細與手動修正">${report.total} 天 🔍</button>`;
                     
-                // 修改後的 renderMainTable 備註與狀態高亮區塊
                     if (report.total >= 90) {
                         statusBadge = `<span class="badge bg-emerald-700 text-white border-none">✅ 達標</span>`;
                         remark = `<span class="text-emerald-700 font-semibold text-xs">符合認證要求</span>`;
@@ -707,13 +688,13 @@ function generateStudentStayReport(student) {
                         remark = `<span class="text-red-600 font-bold text-xs">⚠️ 差 ${90 - report.total} 天</span>`;
                     }
 
-                    // ✨ 如果有單向缺少紀錄，在主頁面備註提示管理員
                     if (report.hasMissingWarning) {
                         remark += `<div class="text-[10px] text-amber-600 font-bold mt-0.5">⚠️ 偵測到單向出/入境紀錄</div>`;
                     }
 
                     let hasManual = Object.keys(student.manualOverrides || {}).length > 0;
                     if (hasManual) remark += `<div class="text-[10px] text-blue-600 font-bold mt-0.5">🛠️ 包含手動修正數據</div>`;
+                }
 
                 tr.innerHTML = idCellsHtml + yearDaysHtml + `<td class="text-center bg-emerald-50/30">${totalDaysDisplay}</td><td>${statusBadge}</td><td class="text-xs text-gray-500">${remark}</td>`;
                 tbody.appendChild(tr);
