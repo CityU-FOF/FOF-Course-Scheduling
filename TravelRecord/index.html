@@ -697,18 +697,23 @@ function generateStudentStayReport(student) {
 
                     totalDaysDisplay = `<button onclick="showDetailModal('${id}')" class="btn btn-xs bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 font-bold" title="點擊查看日期明細與手動修正">${report.total} 天 🔍</button>`;
                     
+                // 修改後的 renderMainTable 備註與狀態高亮區塊
                     if (report.total >= 90) {
                         statusBadge = `<span class="badge bg-emerald-700 text-white border-none">✅ 達標</span>`;
                         remark = `<span class="text-emerald-700 font-semibold text-xs">符合認證要求</span>`;
                     } else {
-                        tr.classList.add('bg-red-50/20');
+                        tr.classList.add('bg-red-50/10');
                         statusBadge = `<span class="badge bg-red-600 text-white border-none">❌ 未達標</span>`;
                         remark = `<span class="text-red-600 font-bold text-xs">⚠️ 差 ${90 - report.total} 天</span>`;
                     }
 
+                    // ✨ 如果有單向缺少紀錄，在主頁面備註提示管理員
+                    if (report.hasMissingWarning) {
+                        remark += `<div class="text-[10px] text-amber-600 font-bold mt-0.5">⚠️ 偵測到單向出/入境紀錄</div>`;
+                    }
+
                     let hasManual = Object.keys(student.manualOverrides || {}).length > 0;
                     if (hasManual) remark += `<div class="text-[10px] text-blue-600 font-bold mt-0.5">🛠️ 包含手動修正數據</div>`;
-                }
 
                 tr.innerHTML = idCellsHtml + yearDaysHtml + `<td class="text-center bg-emerald-50/30">${totalDaysDisplay}</td><td>${statusBadge}</td><td class="text-xs text-gray-500">${remark}</td>`;
                 tbody.appendChild(tr);
