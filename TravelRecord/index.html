@@ -397,54 +397,112 @@
             return fullText;
         }
 
-        function analyzeMainlandPassportText(text, fileName) {
-            let studentName = ""; let studentId = "";
-            
-            const nameMatch = text.match(/(?:姓名|Name)\s*[:：]?\s*([^\s\d]+)/); if (nameMatch) studentName = nameMatch[1].trim();
-            const idMatch = text.match(/(?:學號|Student ID|No)\s*[:：]?\s*([A-Za-z0-9]+)/) || text.match(/\b[A-Za-z]?\d{7,11}\b/);
-            if (idMatch) studentId = idMatch[0].replace(/(學號|No|[:：\s])/g, '').trim();
+      function analyzeMainlandPassportText(text, fileName) {
+    let studentName = ""; 
+    let studentId = "";
+    
+    // 1. 提取姓名和學號
+    const nameMatch = text.match(/(?:姓名|Name)\s*[:：]?\s*([^\s\d\r\n",]+)/); 
+    if (nameMatch) studentName = nameMatch[1].trim();
+    
+    const idMatch = text.match(/(?:學號|Student ID|No)\s*[:：]?\s*([A-Za-z0-9]+)/) || text.match(/\b[A-Za-z]?\d{7,11}\b/);
+    if (idMatch) studentId = idMatch[0].replace(/(學號|No|[:：\s])/g, '').trim();
 
-            if (!studentName || !studentId) {
-                const cleanName = fileName.replace('.pdf', ''); const parts = cleanName.split(/[-_ ]+/);
-                if (parts.length >= 2) { if (!studentId) studentId = parts[0].trim(); if (!studentName) studentName = parts[1].trim(); }
-                else if (!studentName) { studentName = cleanName; }
-            }
-
-            let actionsList = [];
-            const lines = text.split('\n');
-            const dateGlobalRegex = /(\d{4})[-/\.](\d{2})[-/\.](\d{2})/g;
-
-            lines.forEach(line => {
-                if (line.includes("出境") || line.includes("入境")) {
-                    let type = line.includes("出境") ? "出境" : "入境";
-                    dateGlobalRegex.lastIndex = 0;
-                    let dateMatch = dateGlobalRegex.exec(line);
-                    if (dateMatch) {
-                        let formattedDate = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
-                        actionsList.push({ date: formattedDate, action: type });
-                    }
-                }
-            });
-
-            if (actionsList.length === 0) {
-                const fallbackRegex = /(\d{4})[-/\.](\d{2})[-/\.](\d{2})[\s\S]{0,50}?(出境|入境)/g;
-                let m;
-                while ((m = fallbackRegex.exec(text)) !== null) {
-                    actionsList.push({
-                        date: `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`,
-                        action: m[4]
-                    });
-                }
-            }
-
-            return {
-                studentId: studentId || '未知學號_' + Math.floor(Math.random()*1000),
-                studentName: studentName || '未知姓名',
-                rawActions: actionsList,
-                fileName: fileName
-            };
+    // 如果從文本抓不到，嘗試從檔名抓取
+    if (!studentName || !studentId) {
+        const cleanName = fileName.replace('.pdf', ''); 
+        const parts = cleanName.split(/[-_ ]+/);
+        if (parts.length >= 2) { 
+            if (!studentId) studentId = parts[0].trim(); 
+            if (!studentName) studentName = parts[1].trim(); 
+        } else if (!studentName) { 
+            studentName = cleanName; 
         }
+    }
 
+    let actionsList = [];
+
+    // ========================================================
+    // 🔥 【核心修正】：超強強健性全局掃描算法 (解決第2頁起的排版錯位換行)
+    // ========================================================
+    
+    // 首先清除多餘的引號，並將文本徹底按換行符分割成碎片陣列
+    const textClean = text.replace(/"/g, '');
+    const tokens = textClean.split(/[\r\n]+/).map(t => t.trim()).filter(t => t.length > 0);
+    
+    // 建立一個臨時容器，把「出入境標籤」和「日期」按順序排好隊
+    let foundActions = []; // { type: "入境"/"出境", index: 全局位置 }
+    let foundDates = [];   // { date: "YYYY-MM-DD", index: 全局位置 }
+
+    const dateRegex = /\d{4}-\d{2}-\d{2}/;
+
+    // 第一步：全局掃描，把所有散落的【出入境標記】和【日期】位置記錄下來
+    tokens.forEach((token, index) => {
+        // 檢查是否包含出入境標記
+        if (token.includes("出境") || token.includes("入境")) {
+            let type = token.includes("出境") ? "出境" : "入境";
+            foundActions.push({ type: type, tokenIndex: index });
+        }
+        // 檢查是否包含標準日期
+        let dMatch = token.match(dateRegex);
+        if (dMatch) {
+            foundDates.push({ date: dMatch[0], tokenIndex: index });
+        }
+    });
+
+    // 第二步：精準就近配對 (每一條出入境動作，在前後3個標籤範圍內尋找最親近的日期)
+    foundActions.forEach(action => {
+        let bestDateObj = null;
+        let minDistance = 99999;
+
+        foundDates.forEach(dObj => {
+            let distance = Math.abs(action.tokenIndex - dObj.tokenIndex);
+            // 只要距離小於 4 欄/行之內，說明它們在 PDF 表格的同一個橫向單元格或前後格
+            if (distance < minDistance && distance <= 3) {
+                minDistance = distance;
+                bestDateObj = dObj;
+            }
+        });
+
+        // 成功配對到日期！直接塞入出入境流水線
+        if (bestDateObj) {
+            actionsList.push({
+                date: bestDateObj.date,
+                action: action.type
+            });
+        }
+    });
+
+    // 如果上面高級配對沒抓滿（保底防禦備用）
+    if (actionsList.length === 0) {
+        const fallbackRegex = /(\d{4})[-/\.](\d{2})[-/\.](\d{2})[\s\S]{0,60}?(出境|入境)/g;
+        let m;
+        while ((m = fallbackRegex.exec(text)) !== null) {
+            actionsList.push({
+                date: `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`,
+                action: m[4]
+            });
+        }
+    }
+
+    // 將重複抓取的完全相同的行（去重）
+    let uniqueActions = [];
+    let seenStr = new Set();
+    actionsList.forEach(item => {
+        let key = item.date + "_" + item.action;
+        if (!seenStr.has(key)) {
+            seenStr.add(key);
+            uniqueActions.push(item);
+        }
+    });
+
+    return {
+        studentId: studentId || '未知學號_' + Math.floor(Math.random()*1000),
+        studentName: studentName || '未知姓名',
+        rawActions: uniqueActions,
+        fileName: fileName
+    };
+}
         // 🧠 【核心重構：純字串日期桶去重算法，完美保留 5/10 出 5/10 入當天】
         function generateStudentStayReport(student) {
             let dailyStatusMap = new Map(); 
