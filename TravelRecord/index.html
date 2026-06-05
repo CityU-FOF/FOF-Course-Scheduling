@@ -49,29 +49,18 @@
                 </div>
             </div>
 
+           <!-- 🟡 步驟二：導入排除日期 (Excel 假期表) -->
             <div class="card bg-white shadow-md border-t-4 border-facultyGold">
                 <div class="card-body p-5">
                     <div class="flex justify-between items-center mb-2">
-                        <h2 class="font-bold text-lg text-facultyGold">📅 步驟二：設置不計入日期 (公眾假/停課)</h2>
+                        <h2 class="font-bold text-lg text-facultyGold">📅 步驟二：設置不計入日期 (Excel)</h2>
                         <div id="step2Status" class="badge badge-ghost text-xs">未完成</div>
                     </div>
-                    <div class="flex gap-2 mb-3">
-                        <input type="date" id="holidayDate" class="input input-bordered input-sm w-1/2" />
-                        <input type="text" id="holidayDesc" placeholder="描述(可不填)" class="input input-bordered input-sm w-1/2" />
-                        <button onclick="addHoliday()" class="btn btn-sm bg-facultyGold hover:bg-facultyGoldHover text-white border-none">加入</button>
+                    <p class="text-xs text-gray-500 mb-3">請上傳假期 Excel（A1為「日期」，格式如：DD-MM-YYYY，B1為「假期名稱」）。系統會自動排除這些日子與所有週末。</p>
+                    <div class="form-control w-full">
+                        <input type="file" id="holidayExcelFile" accept=".xlsx, .xls" class="file-input file-input-bordered file-input-sm w-full border-facultyGold focus:outline-none" />
                     </div>
-                    
-                    <div class="overflow-x-auto max-h-28 border border-gray-200 rounded mb-2">
-                        <table class="table table-xs table-pin-rows">
-                            <thead>
-                                <tr class="bg-stone-100"><th>日期</th><th>描述</th><th>操作</th></tr>
-                            </thead>
-                            <tbody id="holidayListBody">
-                                <tr><td colspan="3" class="text-center text-gray-400 py-2">無排除日期（即全部日子皆計算）</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <button onclick="confirmStep2()" class="btn btn-sm btn-outline border-facultyGold text-facultyGold hover:bg-facultyGold hover:text-white mt-1">確認設置完成</button>
+                    <button onclick="importHolidayExcel()" class="btn btn-sm bg-facultyGold hover:bg-amber-700 text-white mt-3 border-none">確認導入假期</button>
                 </div>
             </div>
 
@@ -262,29 +251,103 @@
             
             reader.readAsArrayBuffer(file);
         }
+// ==========================================
+        // 🛠️ 模塊二：Excel 假期名單導入與格式轉換 (步驟二)
         // ==========================================
-        // 🛠️ 模塊二：排除日期管理 (步驟二)
-        // ==========================================
-        function addHoliday() {
-            const dateInput = document.getElementById('holidayDate').value;
-            const descInput = document.getElementById('holidayDesc').value.trim();
-            
-            if (!dateInput) {
-                alert('請先選擇日期！');
+        function importHolidayExcel() {
+            const fileInput = document.getElementById('holidayExcelFile');
+            if (fileInput.files.length === 0) {
+                alert('請先選擇一個假期 Excel 檔案！');
                 return;
             }
-            if (exclusionDates.has(dateInput)) return;
 
-            exclusionDates.add(dateInput);
-            holidayDescriptions[dateInput] = descInput || '未命名假期';
+            const file = fileInput.files[0];
+            const reader = new FileReader();
             
-            updateHolidayTable();
-            // 重新計算已有數據學生的天數（防止中途改假期）
-            reCalculateAllStudentsStayDays();
-            renderMainTable();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-            document.getElementById('holidayDate').value = '';
-            document.getElementById('holidayDesc').value = '';
+                if (jsonData.length === 0) {
+                    alert('假期 Excel 內沒有發現數據！');
+                    return;
+                }
+
+                // 清空舊的假期緩存
+                exclusionDates.clear();
+                holidayDescriptions = {};
+
+                let loadCount = 0;
+
+                jsonData.forEach(row => {
+                    let rawDateStr = '';
+                    let desc = '';
+
+                    // 模糊匹配表頭
+                    for (let key in row) {
+                        const cleanKey = String(key).replace(/\s+/g, '');
+                        if (cleanKey.includes('日期') || cleanKey.toLowerCase() === 'date') {
+                            rawDateStr = String(row[key]).trim();
+                        }
+                        if (cleanKey.includes('名稱') || cleanKey.includes('名') || cleanKey.includes('描述') || cleanKey.toLowerCase() === 'name') {
+                            desc = String(row[key]).trim();
+                        }
+                    }
+
+                    // 如果模糊匹配不成功且有兩欄，盲猜第一欄是日期，第二欄是名稱
+                    if (!rawDateStr && Object.keys(row).length >= 2) {
+                        const keys = Object.keys(row);
+                        rawDateStr = String(row[keys[0]]).trim();
+                        if (!desc) desc = String(row[keys[1]]).trim();
+                    }
+
+                    if (rawDateStr && rawDateStr !== 'undefined') {
+                        // 🛠️ 關鍵核心：將使用者要求的 DD-MM-YYYY 格式，轉換為系統底層比對用的 YYYY-MM-DD 格式
+                        // 支援兩種常見分隔符：DD-MM-YYYY 或 DD/MM/YYYY
+                        const dateParts = rawDateStr.split(/[-/]+/);
+                        
+                        if (dateParts.length === 3) {
+                            let day = dateParts[0].padStart(2, '0');
+                            let month = dateParts[1].padStart(2, '0');
+                            let year = dateParts[2];
+                            
+                            // 確保切分出來的順序符合預期 (如果是 DD-MM-YYYY，長度應該是天(2)-月(2)-年(4))
+                            // 行政人員有時會誤輸入成 YYYY-MM-DD，這裡做個防呆自動校正
+                            if (day.length === 4) { 
+                                // 說明傳進來其實是 YYYY-MM-DD
+                                const temp = day; day = year; year = temp;
+                            }
+
+                            const standardizedDate = `${year}-${month}-${day}`;
+                            
+                            exclusionDates.add(standardizedDate);
+                            holidayDescriptions[standardizedDate] = desc || '公眾假期/停課';
+                            loadCount++;
+                        }
+                    }
+                });
+
+                if (loadCount === 0) {
+                    alert('無法讀取假期日期，請確保 A1 欄位名稱為「日期」，且格式為 DD-MM-YYYY（例如：20-12-2026）。');
+                    return;
+                }
+
+                // 更新界面步驟二的狀態
+                document.getElementById('step2Status').innerText = `✅ 已導入 ${loadCount} 天`;
+                document.getElementById('step2Status').className = 'badge badge-success text-white text-xs';
+                
+                // 💡 聯動機制：如果使用者先傳了 PDF，後面才補傳假期，會自動觸發實時重新計算天數並更新右側大表！
+                reCalculateAllStudentsStayDays();
+                renderMainTable();
+                updateGlobalProgress();
+
+                alert(`成功導入 ${loadCount} 個非工作日/假期日期！系統已與學生出入境數據即時同步。`);
+            };
+            
+            reader.readAsArrayBuffer(file);
         }
 
         function removeHoliday(dateStr) {
