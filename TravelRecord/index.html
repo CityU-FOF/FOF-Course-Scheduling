@@ -255,6 +255,9 @@
 // ==========================================
         // 🛠️ 模塊二：Excel 假期名單導入 (終極格式兼容版，支援 DD/MM/YYYY 與 Excel 內部數字)
         // ==========================================
+// ==========================================
+        // 🛠️ 模塊二：Excel 假期名單導入 (全自動智能格式適應版)
+        // ==========================================
         function importHolidayExcel() {
             const fileInput = document.getElementById('holidayExcelFile');
             if (fileInput.files.length === 0) {
@@ -267,12 +270,12 @@
             
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
-                // 💡 關鍵設定：cellDates: true 讓 SheetJS 自動嘗試將 Excel 的內部日期格式轉為 JS Date 物件
+                // 這裡開啟 cellDates，讓 Excel 內部的日期物件能被正確捕獲
                 const workbook = XLSX.read(data, { type: 'array', cellDates: true });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
-                // raw: false 可以拿到 Excel 儲存格表面顯示的文字（例如 20/12/2026）
+                // 拿到最原始的數據列
                 const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
                 if (jsonData.length === 0) {
@@ -299,7 +302,7 @@
                         }
                     }
 
-                    // 盲猜機制
+                    // 2. 盲猜機制
                     if (!rawDateStr && Object.keys(row).length >= 2) {
                         const keys = Object.keys(row);
                         rawDateStr = String(row[keys[0]]).trim();
@@ -309,33 +312,33 @@
                     if (rawDateStr && rawDateStr !== 'undefined') {
                         let standardizedDate = '';
 
-                        // 🛠️ 核心解析邏輯升級：
-                        // 情況 A：如果讀出來已經是標準年-月-日（例如部分系統導出的格式 YYYY-MM-DD）
-                        if (/^\d{4}-\d{2}-\d{2}/.test(rawDateStr)) {
-                            standardizedDate = rawDateStr.substring(0, 10);
+                        // 🛠️ 核心升級：智能解析任何日期外觀
+                        // 情況 A：如果已經是 YYYY-MM-DD 格式（例如：2021-09-22）
+                        if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(rawDateStr)) {
+                            const parts = rawDateStr.split(/[-/]+/);
+                            let y = parts[0];
+                            let m = parts[1].padStart(2, '0');
+                            let d = parts[2].substring(0,2).padStart(2, '0'); // 防止帶有時間尾巴
+                            standardizedDate = `${y}-${m}-${d}`;
                         } 
-                        // 情況 B：處理你所說的 DD/MM/YYYY 格式（例如 20/12/2026 或 5/6/2026）
+                        // 情況 B：如果是歐洲/澳門習慣的 DD/MM/YYYY 或 DD-MM-YYYY（例如：22/09/2021）
                         else {
-                            // 支援斜槓 / 或 橫槓 - 拆分
                             const dateParts = rawDateStr.split(/[-/]+/);
-                            
                             if (dateParts.length === 3) {
-                                // 抓取前三部分，並自動補零（例如 '5' 變成 '05'）
                                 let part1 = dateParts[0].trim().padStart(2, '0'); // DD
                                 let part2 = dateParts[1].trim().padStart(2, '0'); // MM
                                 let part3 = dateParts[2].trim();                  // YYYY
                                 
-                                // 防呆：如果第一部分長度是 4，說明格式其實是 YYYY/MM/DD
-                                if (part1.length === 4) {
+                                if (part1.length === 4) { // 防呆：如果第一部分長度是4，說明其實是 YYYY
                                     standardizedDate = `${part1}-${part2}-${part3}`;
                                 } else {
-                                    // 完美的 DD/MM/YYYY 轉 YYYY-MM-DD
+                                    // 將 DD/MM/YYYY 完美調回 YYYY-MM-DD
                                     standardizedDate = `${part3}-${part2}-${part1}`;
                                 }
                             }
                         }
 
-                        // 驗證轉換後的日期是否有效（防止讀到空白行或雜質數據）
+                        // 3. 驗證最終生成的日期是否合法，合法則塞入系統
                         if (standardizedDate && !isNaN(new Date(standardizedDate).getTime())) {
                             exclusionDates.add(standardizedDate);
                             holidayDescriptions[standardizedDate] = desc || '公眾假期/停課';
@@ -345,7 +348,7 @@
                 });
 
                 if (loadCount === 0) {
-                    alert('無法識別日期！請確保 Excel 第一列為「日期」，且格式為 DD/MM/YYYY（如：20/12/2026）。');
+                    alert('無法識別日期！請確保 Excel 內包含「日期」欄位。');
                     return;
                 }
 
@@ -357,7 +360,7 @@
                 renderMainTable();
                 updateGlobalProgress();
 
-                alert(`成功導入 ${loadCount} 個假期！已完美兼容 DD/MM/YYYY 格式並實時更新數據。`);
+                alert(`成功導入 ${loadCount} 個假期！已完美自適應您的 Excel 數據格式。`);
             };
             
             reader.readAsArrayBuffer(file);
