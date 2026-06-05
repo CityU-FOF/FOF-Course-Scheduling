@@ -27,7 +27,7 @@
 
     <div class="w-full bg-facultyGreen text-white p-4 shadow-lg flex justify-between items-center px-8 border-b-4 border-facultyGold">
         <h1 class="text-2xl font-bold tracking-wide flex items-center gap-2">
-            🏛️ 金融學院研究生在澳逗留天數統計系統 (超級兼容版)
+            🏛️ 金融學院研究生在澳逗留天數統計系統 (區間邏輯修復版)
         </h1>
         <span class="text-sm bg-white/10 px-3 py-1 rounded-full text-amber-300 font-medium">內部行政專用版</span>
     </div>
@@ -390,11 +390,9 @@
             return fullText;
         }
 
-        // 🧠 【終極重寫：超級模糊容錯的內地出入境 PDF 日期與動作抓取算法】
         function analyzeMainlandPassportText(text, fileName) {
             let studentName = ""; let studentId = "";
             
-            // 1. 抓取基本身份資料
             const nameMatch = text.match(/(?:姓名|Name)\s*[:：]?\s*([^\s\d]+)/); if (nameMatch) studentName = nameMatch[1].trim();
             const idMatch = text.match(/(?:學號|Student ID|No)\s*[:：]?\s*([A-Za-z0-9]+)/) || text.match(/\b[A-Za-z]?\d{7,11}\b/);
             if (idMatch) studentId = idMatch[0].replace(/(學號|No|[:：\s])/g, '').trim();
@@ -406,22 +404,14 @@
             }
 
             let actionsList = [];
-            
-            // 2. 採取按行切分的「近鄰掃描」模式：防止有些 PDF 把日期和「出境」寫在不同單元格但屬於同一行的問題
             const lines = text.split('\n');
-            
-            // 支援：YYYY-MM-DD, YYYY/MM/DD, YYYY.MM.DD 甚至是帶有具體時間的格式
             const dateGlobalRegex = /(\d{4})[-/\.](\d{2})[-/\.](\d{2})/g;
 
             lines.forEach(line => {
-                // 如果這一行既有日期又有出入境關鍵字
                 if (line.includes("出境") || line.includes("入境")) {
                     let type = line.includes("出境") ? "出境" : "入境";
-                    
-                    // 重置 RegExp 狀態
                     dateGlobalRegex.lastIndex = 0;
                     let dateMatch = dateGlobalRegex.exec(line);
-                    
                     if (dateMatch) {
                         let formattedDate = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
                         actionsList.push({ date: formattedDate, action: type });
@@ -429,7 +419,6 @@
                 }
             });
 
-            // 3. 兜底策略：如果按行沒抓到，嘗試全局自由流比對
             if (actionsList.length === 0) {
                 const fallbackRegex = /(\d{4})[-/\.](\d{2})[-/\.](\d{2})[\s\S]{0,50}?(出境|入境)/g;
                 let m;
@@ -441,9 +430,8 @@
                 }
             }
 
-            // 按時間先後排序
+            // 🌟 在這裡就做一次時間排序，確保後端數據格式完全一致
             actionsList.sort((a, b) => new Date(a.date) - new Date(b.date));
-
             return {
                 studentId: studentId || '未知學號_' + Math.floor(Math.random()*1000),
                 studentName: studentName || '未知姓名',
@@ -452,57 +440,73 @@
             };
         }
 
+        // 🧠 【核心邏輯重大重構：穩健的時間軸區間配對算法】
         function generateStudentStayReport(student) {
             let dailyStatusMap = new Map(); 
             let totalValid = 0;
             let yearCounts = {};
             academicYears.forEach(y => yearCounts[y.name] = 0);
 
-            const actions = student.rawActions || [];
-            let i = 0;
-            while (i < actions.length) {
-                let current = actions[i];
+            // 1. 拷貝並強制按日期「由遠到近 (正序)」重新排序，根除 PDF 倒序排版帶來的干擾
+            const actions = [...(student.rawActions || [])];
+            actions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-                if (current.action === "出境") { 
-                    let next = (i + 1 < actions.length) ? actions[i + 1] : null;
+            // 2. 使用狀態機遍歷時間軸
+            let lastDepartureDate = null; // 記錄最近一次「出境(來澳)」的日期
 
-                    if (next && next.action === "入境") {
-                        let start = new Date(current.date);
-                        let end = new Date(next.date);
+            actions.forEach(item => {
+                if (item.action === "出境") {
+                    // 如果前面已經有一個出境了卻沒入境，先把前一個單獨記錄（或視為當天往返）
+                    if (lastDepartureDate) {
+                        dailyStatusMap.set(lastDepartureDate, { type: 'auto', status: '✅ 計入', info: "內地出境(來澳)當天紀錄" });
+                    }
+                    lastDepartureDate = item.date;
+                } 
+                else if (item.action === "入境") {
+                    if (lastDepartureDate) {
+                        // 🚀 抓到了完美配對！將 [出境日期] 到 [入境日期] 之間的所有日子全部填滿計入
+                        let start = new Date(lastDepartureDate);
+                        let end = new Date(item.date);
                         
                         let safetyCounter = 0;
                         for (let d = new Date(start); d <= end && safetyCounter < 1000; d.setDate(d.getDate() + 1)) {
                             safetyCounter++;
                             let dateStr = d.toISOString().split('T')[0];
-                            let note = (dateStr === current.date) ? "內地出境(來澳)" : (dateStr === next.date ? "內地入境(返回)" : "區間留澳期間");
+                            let note = (dateStr === lastDepartureDate) ? "內地出境(來澳)" : (dateStr === item.date ? "內地入境(返回)" : "區間留澳期間");
                             dailyStatusMap.set(dateStr, { type: 'auto', status: '✅ 計入', info: note });
                         }
-                        i += 2; 
+                        lastDepartureDate = null; // 清空狀態，等待下一次出境
                     } else {
-                        dailyStatusMap.set(current.date, { type: 'auto', status: '⚠️ 缺少紀錄', info: "內地出境後缺少對應入境(返回)紀錄，暫不計入" });
-                        i += 1;
+                        // 只有入境，沒有前面的出境紀錄
+                        dailyStatusMap.set(item.date, { type: 'auto', status: '⚠️ 缺少紀錄', info: "內地入境前缺少對應出境(來澳)紀錄，暫不計入" });
                     }
-                } else {
-                    dailyStatusMap.set(current.date, { type: 'auto', status: '⚠️ 缺少紀錄', info: "內地入境前缺少對應出境(來澳)紀錄，暫不計入" });
-                    i += 1;
                 }
+            });
+
+            // 如果遍歷完了，還留有一個出境沒有對應的入境，說明至今未歸或跨度未完，單獨計入出境當天
+            if (lastDepartureDate) {
+                dailyStatusMap.set(lastDepartureDate, { type: 'auto', status: '✅ 計入', info: "內地出境紀錄(未偵測到後續回程)" });
             }
 
+            // 3️⃣ 第二步：掃描所有自動計入的天數，套用「週末」、「假期」以及「學年」過濾
             dailyStatusMap.forEach((data, dateStr) => {
                 if (data.status === '✅ 計入') {
                     let dateObj = new Date(dateStr);
                     let dayOfWeek = dateObj.getDay();
 
+                    // 週末過濾
                     if (dayOfWeek === 0 || dayOfWeek === 6) {
-                        let weekStr = dayOfWeek === 0 ? "星期日" : "星期校";
-                        dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `週末六日 (${weekStr === "星期校" ? "星期六" : "星期日"})` });
+                        let weekStr = dayOfWeek === 0 ? "星期日" : "星期六";
+                        dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `週末六日 (${weekStr})` });
                         return;
                     }
+                    // 公眾假過濾
                     if (exclusionDates.has(dateStr)) {
                         dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `自訂假期: ${holidayDescriptions[dateStr]}` });
                         return;
                     }
                     
+                    // 學年區間字串比對
                     let yearBelongs = null;
                     if (academicYears.length > 0) {
                         for (let year of academicYears) {
@@ -520,6 +524,7 @@
                 }
             });
 
+            // 4️⃣ 第三步：強行覆蓋管理員手動修正
             if (student.manualOverrides) {
                 Object.keys(student.manualOverrides).forEach(dateStr => {
                     let manualStatus = student.manualOverrides[dateStr]; 
@@ -538,6 +543,7 @@
                 });
             }
 
+            // 5️⃣ 第四步：最後加總天數
             let hasMissingWarning = false;
             dailyStatusMap.forEach((data, dateStr) => {
                 if (data.status === '✅ 計入') {
@@ -637,7 +643,7 @@
             studentOrder.forEach((id, index) => {
                 const student = studentMap.get(id); if(!student) return;
                 const tr = document.createElement('tr');
-                let idCellsHtml = `<td class="text-center text-gray-400">${index + 1}</td><td class="font-semibold">${student.name}</td><td class="font-mono text-xs"> ${id}</td>`;
+                let idCellsHtml = `<td class="text-center text-gray-400">${index + 1}</td><td class="font-semibold">${student.name}</td><td class="font-mono text-xs">${id}</td>`;
                 let yearDaysHtml = ''; let totalDaysDisplay = ''; let statusBadge = ''; let remark = '';
 
                 if (!student.parsed) {
@@ -707,7 +713,7 @@
             const worksheet = XLSX.utils.json_to_sheet(excelData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "多學年逗留統計");
-            XLSX.writeFile(workbook, `研究生在澳逗留天數統計總表_超級版.xlsx`);
+            XLSX.writeFile(workbook, `研究生在澳逗留天數統計總表_終極修復版.xlsx`);
         }
     </script>
 </body>
