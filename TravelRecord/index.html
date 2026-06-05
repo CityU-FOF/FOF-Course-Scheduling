@@ -50,17 +50,19 @@
             </div>
 
            <!-- 🟡 步驟二：導入排除日期 (Excel 假期表) -->
-            <div class="card bg-white shadow-md border-t-4 border-facultyGold">
+<div class="card bg-white shadow-md border-t-4 border-facultyGold">
                 <div class="card-body p-5">
                     <div class="flex justify-between items-center mb-2">
-                        <h2 class="font-bold text-lg text-facultyGold">📅 步驟二：設置不計入日期 (Excel)</h2>
+                        <h2 class="font-bold text-lg text-facultyGold">📅 步驟二：貼上不計入日期清單</h2>
                         <div id="step2Status" class="badge badge-ghost text-xs">未完成</div>
                     </div>
-                    <p class="text-xs text-gray-500 mb-3">請上傳假期 Excel（A1為「日期」，格式如：DD-MM-YYYY，B1為「假期名稱」）。系統會自動排除這些日子與所有週末。</p>
+                    <p class="text-xs text-gray-500 mb-2">請從 Excel 複製「日期」與「名稱」兩欄，直接在下方貼上（格式支援：22/9/2021 中秋節）：</p>
+                    
                     <div class="form-control w-full">
-                        <input type="file" id="holidayExcelFile" accept=".xlsx, .xls" class="file-input file-input-bordered file-input-sm w-full border-facultyGold focus:outline-none" />
+                        <textarea id="holidayRawText" rows="6" placeholder="請在此貼上日期數據...&#10;例如：&#10;22/9/2021	中秋節翌日&#10;1/10/2021	中華人民共和國國慶日" class="textarea textarea-bordered font-mono text-xs border-facultyGold focus:outline-none w-full p-2 bg-stone-50 resize-y"></textarea>
                     </div>
-                    <button onclick="importHolidayExcel()" class="btn btn-sm bg-facultyGold hover:bg-amber-700 text-white mt-3 border-none">確認導入假期</button>
+                    
+                    <button onclick="parseHolidayRawText()" class="btn btn-sm bg-facultyGold hover:bg-amber-700 text-white mt-3 border-none w-full">確認解析並導入假期</button>
                 </div>
             </div>
 
@@ -253,117 +255,65 @@
         }
 
 // ==========================================
-        // 🛠️ 模塊二：Excel 假期名單導入 (終極格式兼容版，支援 DD/MM/YYYY 與 Excel 內部數字)
+        // 🛠️ 模塊二：純文字假期名單解析 (步驟二)
         // ==========================================
-// ==========================================
-        // 🛠️ 模塊二：Excel 假期名單導入 (全自動智能格式適應版)
-        // ==========================================
-        function importHolidayExcel() {
-            const fileInput = document.getElementById('holidayExcelFile');
-            if (fileInput.files.length === 0) {
-                alert('請先選擇一個假期 Excel 檔案！');
+        function parseHolidayRawText() {
+            const rawText = document.getElementById('holidayRawText').value.trim();
+            
+            if (!rawText) {
+                alert('貼上區域為空！請先複製並貼上您的日期數據。');
                 return;
             }
 
-            const file = fileInput.files[0];
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                const data = new Uint8Array(e.target.result);
-                // 這裡開啟 cellDates，讓 Excel 內部的日期物件能被正確捕獲
-                const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
+            // 清空舊的假期緩存
+            exclusionDates.clear();
+            holidayDescriptions = {};
+
+            // 按行切開
+            const lines = rawText.split('\n');
+            let loadCount = 0;
+
+            lines.forEach(line => {
+                const cleanLine = line.trim();
+                if (!cleanLine) return; // 跳過空行
+
+                // 🛠️ 核心解析：使用正則表達式抓取最前方的 日/月/年
+                // 支持 d/m/yyyy 或 dd/mm/yyyy
+                const dateMatch = cleanLine.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
                 
-                // 拿到最原始的數據列
-                const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+                if (dateMatch) {
+                    let day = dateMatch[1].padStart(2, '0');
+                    let month = dateMatch[2].padStart(2, '0');
+                    let year = dateMatch[3];
 
-                if (jsonData.length === 0) {
-                    alert('假期 Excel 內沒有發現數據！');
-                    return;
+                    // 轉換為系統底層標準比對格式：YYYY-MM-DD
+                    const standardizedDate = `${year}-${month}-${day}`;
+
+                    // 抓取日期後面的文字作為描述說明
+                    // 移除掉匹配到的日期部分，剩下的就是假期名稱
+                    let desc = cleanLine.replace(dateMatch[0], '').trim();
+                    
+                    exclusionDates.add(standardizedDate);
+                    holidayDescriptions[standardizedDate] = desc || '公眾假期/停課';
+                    loadCount++;
                 }
+            });
 
-                exclusionDates.clear();
-                holidayDescriptions = {};
-                let loadCount = 0;
+            if (loadCount === 0) {
+                alert('無法識別任何有效日期！請確保貼上的文字開頭是「日/月/年」格式（例如：22/9/2021）。');
+                return;
+            }
 
-                jsonData.forEach(row => {
-                    let rawDateStr = '';
-                    let desc = '';
-
-                    // 1. 模糊匹配表頭
-                    for (let key in row) {
-                        const cleanKey = String(key).replace(/\s+/g, '');
-                        if (cleanKey.includes('日期') || cleanKey.toLowerCase() === 'date') {
-                            rawDateStr = String(row[key]).trim();
-                        }
-                        if (cleanKey.includes('名稱') || cleanKey.includes('名') || cleanKey.includes('描述') || cleanKey.toLowerCase() === 'name') {
-                            desc = String(row[key]).trim();
-                        }
-                    }
-
-                    // 2. 盲猜機制
-                    if (!rawDateStr && Object.keys(row).length >= 2) {
-                        const keys = Object.keys(row);
-                        rawDateStr = String(row[keys[0]]).trim();
-                        if (!desc) desc = String(row[keys[1]]).trim();
-                    }
-
-                    if (rawDateStr && rawDateStr !== 'undefined') {
-                        let standardizedDate = '';
-
-                        // 🛠️ 核心升級：智能解析任何日期外觀
-                        // 情況 A：如果已經是 YYYY-MM-DD 格式（例如：2021-09-22）
-                        if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(rawDateStr)) {
-                            const parts = rawDateStr.split(/[-/]+/);
-                            let y = parts[0];
-                            let m = parts[1].padStart(2, '0');
-                            let d = parts[2].substring(0,2).padStart(2, '0'); // 防止帶有時間尾巴
-                            standardizedDate = `${y}-${m}-${d}`;
-                        } 
-                        // 情況 B：如果是歐洲/澳門習慣的 DD/MM/YYYY 或 DD-MM-YYYY（例如：22/09/2021）
-                        else {
-                            const dateParts = rawDateStr.split(/[-/]+/);
-                            if (dateParts.length === 3) {
-                                let part1 = dateParts[0].trim().padStart(2, '0'); // DD
-                                let part2 = dateParts[1].trim().padStart(2, '0'); // MM
-                                let part3 = dateParts[2].trim();                  // YYYY
-                                
-                                if (part1.length === 4) { // 防呆：如果第一部分長度是4，說明其實是 YYYY
-                                    standardizedDate = `${part1}-${part2}-${part3}`;
-                                } else {
-                                    // 將 DD/MM/YYYY 完美調回 YYYY-MM-DD
-                                    standardizedDate = `${part3}-${part2}-${part1}`;
-                                }
-                            }
-                        }
-
-                        // 3. 驗證最終生成的日期是否合法，合法則塞入系統
-                        if (standardizedDate && !isNaN(new Date(standardizedDate).getTime())) {
-                            exclusionDates.add(standardizedDate);
-                            holidayDescriptions[standardizedDate] = desc || '公眾假期/停課';
-                            loadCount++;
-                        }
-                    }
-                });
-
-                if (loadCount === 0) {
-                    alert('無法識別日期！請確保 Excel 內包含「日期」欄位。');
-                    return;
-                }
-
-                // 更新界面與實時重新計算天數
-                document.getElementById('step2Status').innerText = `✅ 已導入 ${loadCount} 天`;
-                document.getElementById('step2Status').className = 'badge badge-success text-white text-xs';
-                
-                reCalculateAllStudentsStayDays();
-                renderMainTable();
-                updateGlobalProgress();
-
-                alert(`成功導入 ${loadCount} 個假期！已完美自適應您的 Excel 數據格式。`);
-            };
+            // 更新界面步驟二的狀態
+            document.getElementById('step2Status').innerText = `✅ 已解析 ${loadCount} 天`;
+            document.getElementById('step2Status').className = 'badge badge-success text-white text-xs';
             
-            reader.readAsArrayBuffer(file);
+            // 實時連動重新計算天數並更新右側大表
+            reCalculateAllStudentsStayDays();
+            renderMainTable();
+            updateGlobalProgress();
+
+            alert(`🎉 成功解析並導入 ${loadCount} 個非工作日/假期日期！已即時同步全局數據。`);
         }
 
         function removeHoliday(dateStr) {
