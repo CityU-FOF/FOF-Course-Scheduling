@@ -168,6 +168,9 @@
         // ==========================================
         // 🛠️ 模塊一：Excel 學生名單導入 (步驟一)
         // ==========================================
+      // ==========================================
+        // 🛠️ 模塊一：Excel 學生名單導入 (步驟一) - 增強模糊識別版
+        // ==========================================
         function importStudentList() {
             const fileInput = document.getElementById('excelFile');
             if (fileInput.files.length === 0) {
@@ -183,6 +186,8 @@
                 const workbook = XLSX.read(data, { type: 'array' });
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
+                
+                // 轉成 JSON 數據
                 const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
                 if (jsonData.length === 0) {
@@ -196,14 +201,35 @@
 
                 // 讀取並分析欄位
                 jsonData.forEach(row => {
-                    // 模糊匹配名稱與學號欄位
-                    let name = row['學生姓名'] || row['姓名'] || row['Name'] || '';
-                    let id = row['學號'] || row['學生學號'] || row['StudentID'] || row['No'] || '';
-                    
-                    if (id && name) {
-                        id = String(id).trim();
-                        name = String(name).trim();
+                    let name = '';
+                    let id = '';
+
+                    // 🛠️ 核心改進：遍歷這一行的所有鍵值（表頭），進行超級模糊匹配
+                    for (let key in row) {
+                        // 把表頭轉為去空格、轉小寫，方便比對
+                        const cleanKey = String(key).replace(/\s+/g, '');
                         
+                        // 匹配「學號」家族 (包含繁體、簡體、英文)
+                        if (cleanKey.includes('學號') || cleanKey.includes('学号') || cleanKey.toLowerCase() === 'id' || cleanKey.includes('studentid') || cleanKey.toLowerCase() === 'no') {
+                            id = String(row[key]).trim();
+                        }
+                        
+                        // 匹配「姓名」家族 (包含繁體、簡體、英文)
+                        if (cleanKey.includes('姓名') || cleanKey.toLowerCase() === 'name' || cleanKey.includes('學生姓名') || cleanKey.includes('学生姓名')) {
+                            name = String(row[key]).trim();
+                        }
+                    }
+                    
+                    // 如果還是找不到，但這一行剛好只有兩個欄位，我們就「盲猜」第一個是學號，第二個是姓名（防呆底線）
+                    if ((!id || !name) && Object.keys(row).length >= 2) {
+                        const keys = Object.keys(row);
+                        // 假設第一欄是學號，第二欄是姓名
+                        if (!id) id = String(row[keys[0]]).trim();
+                        if (!name) name = String(row[keys[1]]).trim();
+                    }
+                    
+                    // 確保讀到有效的數據才塞入系統
+                    if (id && name && id !== 'undefined' && name !== 'undefined') {
                         if (!studentMap.has(id)) {
                             studentMap.set(id, {
                                 name: name,
@@ -218,11 +244,11 @@
                 });
 
                 if (studentOrder.length === 0) {
-                    alert('無法自動識別「姓名」和「學號」欄位，請檢查 Excel 表頭。');
+                    alert('系統已啟動強效識別，但仍無法讀取您的 Excel。請確保 A1 寫著「學號」，B1 寫著「姓名」，且下方有學生資料。');
                     return;
                 }
 
-                // 更新界面
+                // 更新界面狀態
                 document.getElementById('step1Status').innerText = '✅ 已完成';
                 document.getElementById('step1Status').className = 'badge badge-success text-white text-xs';
                 
@@ -236,7 +262,6 @@
             
             reader.readAsArrayBuffer(file);
         }
-
         // ==========================================
         // 🛠️ 模塊二：排除日期管理 (步驟二)
         // ==========================================
