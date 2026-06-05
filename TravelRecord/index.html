@@ -158,37 +158,25 @@
         </div>
     </dialog>
 
-    <dialog id="detailModal" class="modal">
-        <div class="modal-box max-w-3xl overflow-hidden flex flex-col max-h-[85vh]">
+  <dialog id="detailModal" class="modal">
+        <div class="modal-box max-w-4xl overflow-hidden flex flex-col max-h-[88vh]">
             <h3 class="font-bold text-lg text-facultyGreen mb-1">🔍 學生出入境日期區間排查與手動修正明細</h3>
             <p class="text-xs text-gray-500 mb-3">學生：<span id="detailStudentInfo" class="font-bold text-slate-800 text-sm"></span></p>
             
-            <div class="bg-amber-50 border border-amber-200 text-amber-900 rounded p-2.5 text-xs mb-3 leading-relaxed">
+            <div class="bg-amber-50 border border-amber-200 text-amber-900 rounded p-2.5 text-xs mb-4 leading-relaxed">
                 💡 <b>日曆天數打卡規則</b>：系統採用穩健流機制。任何出入境當天均直接計入，無紀錄之空白天不自動補齊。若某日僅有單向「出境」或「入境」動作，將標記黃色警告供管理員人工判定。
             </div>
 
-            <div class="flex-grow overflow-y-auto border rounded bg-white shadow-inner">
-                <table class="table table-compact table-zebra w-full text-xs">
-                    <thead class="bg-stone-100 sticky top-0 font-bold text-gray-700">
-                        <tr>
-                            <th class="w-24">日期</th>
-                            <th class="w-16">星期</th>
-                            <th>出入境狀態 / 假期過濾說明</th>
-                            <th class="w-32 text-center">當前統計狀態</th>
-                            <th class="w-48 text-center">手動修正操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="detailLogTableBody" class="font-mono">
-                    </tbody>
-                </table>
+            <div class="flex-grow overflow-y-auto pr-1" id="detailLogTableBody">
             </div>
             
-            <div class="modal-action">
-                <button onclick="document.getElementById('detailModal').close(); renderMainTable(); updateGlobalProgress();" class="btn btn-sm bg-facultyGreen hover:bg-emerald-800 text-white border-none">💾 儲存並關閉視窗</button>
+            <div class="modal-action border-t pt-3 mt-3">
+                <button onclick="document.getElementById('detailModal').close(); renderMainTable(); updateGlobalProgress();" class="btn btn-sm bg-facultyGreen hover:bg-emerald-800 text-white border-none px-6">
+                    💾 儲存修正並關閉視窗
+                </button>
             </div>
         </div>
     </dialog>
-
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -593,43 +581,144 @@
             document.getElementById('detailModal').showModal();
         }
 
-        function renderModalTableContent() {
-            const student = studentMap.get(activeStudentIdForModal);
-            const report = generateStudentStayReport(student);
-            const tbody = document.getElementById('detailLogTableBody');
-            tbody.innerHTML = '';
+     // 🔍 升級版明細介面：按學年動態分組、獨立小計與全期大總和統計
+function renderModalTableContent() {
+    const student = studentMap.get(activeStudentIdForModal);
+    const report = generateStudentStayReport(student);
+    const tbodyContainer = document.getElementById('detailLogTableBody');
+    
+    // 清空原本的單一表格內容，改為動態容器模式
+    tbodyContainer.innerHTML = '';
 
-            if (report.reportLines.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-400 py-6">該學生的 PDF 未能成功解析出任何日期數據。</td></tr>`;
-                return;
+    if (report.reportLines.length === 0) {
+        tbodyContainer.innerHTML = `<tr><td colspan="5" class="text-center text-gray-400 py-12 text-sm">該學生的 PDF 未能成功解析出任何日期數據。</td></tr>`;
+        return;
+    }
+
+    const currentYears = getAcademicYearsConfig();
+    
+    // 1. 初始化分組容器與大總和計數器
+    let groups = {};
+    currentYears.forEach(y => {
+        groups[y.name] = { lines: [], total: 0, vCount: 0, eCount: 0 };
+    });
+    groups["不在任何已配置學年區間內"] = { lines: [], total: 0, vCount: 0, eCount: 0 };
+
+    let grandTotal = 0;
+    let grandValid = 0;
+    let grandExceed = 0;
+
+    // 2. 將明細行分流到各個學年，並累加計數
+    report.reportLines.forEach(line => {
+        let belongs = line.yearBelongs || "不在任何已配置學年區間內";
+        if (!groups[belongs]) {
+            groups[belongs] = { lines: [], total: 0, vCount: 0, eCount: 0 };
+        }
+        groups[belongs].lines.push(line);
+        groups[belongs].total++;
+        
+        if (line.status === '✅ 計入') groups[belongs].vCount++;
+        else if (line.status === '❌ 排除') groups[belongs].eCount++;
+
+        // 累加大總和
+        grandTotal++;
+        if (line.status === '✅ 計入') grandValid++;
+        else if (line.status === '❌ 排除') grandExceed++;
+    });
+
+    // 3. 開始動態構建外觀 HTML (每個學年獨立成表)
+    let finalHtml = "";
+
+    Object.keys(groups).forEach(yearName => {
+        const group = groups[yearName];
+        if (group.lines.length === 0) return; // 若該學年沒有任何紀錄，則不顯示該區塊
+
+        // 構建學年標頭與表格框架
+        let isAlertYear = yearName.includes("不在任何") ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-950 border-amber-200";
+        finalHtml += `
+            <div class="mb-6 border rounded-lg overflow-hidden shadow-sm">
+                <div class="p-2 font-bold text-xs ${isAlertYear} flex justify-between items-center px-4">
+                    <span>📅 歸屬分類：${yearName}</span>
+                    <span class="badge badge-sm badge-ghost font-mono">共 ${group.lines.length} 條動態</span>
+                </div>
+                <table class="table table-compact w-full text-xs font-mono mb-0">
+                    <thead class="bg-stone-50 font-bold text-gray-600 border-b">
+                        <tr>
+                            <th class="w-24">日期</th>
+                            <th class="w-16">星期</th>
+                            <th>出入境狀態 / 假期過濾說明</th>
+                            <th class="w-28 text-center">狀態</th>
+                            <th class="w-40 text-center">手動修正</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        // 填入該學年的每一天數據
+        group.lines.forEach(line => {
+            let parts = line.date.split('-');
+            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+            const weekStr = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"][dateObj.getDay()];
+            
+            let statusBadge = '';
+            let rowBg = '';
+            if (line.status === '✅ 計入') {
+                statusBadge = `<span class="badge badge-success text-white badge-sm px-2">✅ 計入</span>`;
+            } else if (line.status === '❌ 排除') {
+                statusBadge = `<span class="badge badge-error text-white badge-sm px-2">❌ 排除</span>`;
+                rowBg = 'bg-stone-50/60 text-gray-400';
             }
 
-            report.reportLines.forEach(line => {
-                const tr = document.createElement('tr');
-                let parts = line.date.split('-');
-                const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-                const weekStr = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"][dateObj.getDay()];
-                
-                let statusBadge = '';
-                if (line.status === '✅ 計入') statusBadge = `<span class="badge badge-success text-white badge-sm">計入</span>`;
-                else if (line.status === '❌ 排除') statusBadge = `<span class="badge badge-error text-white badge-sm">排除</span>`;
+            let typeTag = line.type === 'manual' ? `<span class="text-blue-600 font-bold ml-1 text-[10px] bg-blue-50 border border-blue-200 px-1 rounded">手動修正</span>` : '';
+            let warningBg = line.isImperfect ? 'bg-amber-50/70 font-semibold' : '';
 
-                let typeTag = line.type === 'manual' ? `<span class="text-blue-600 font-bold ml-1 text-[10px] bg-blue-50 border border-blue-200 px-1 rounded">(手動)</span>` : '';
-
-                tr.innerHTML = `
-                    <td class="font-bold text-gray-700">${line.date}</td>
-                    <td class="text-gray-500">${weekStr}</td>
-                    <td><span class="text-xs text-gray-600">${line.info}</span> ${typeTag}</td>
+            finalHtml += `
+                <tr class="${rowBg} ${warningBg} hover:bg-stone-50">
+                    <td class="font-bold">${line.date}</td>
+                    <td>${weekStr}</td>
+                    <td><span class="text-xs">${line.info}</span> ${typeTag}</td>
                     <td class="text-center">${statusBadge}</td>
-                    <td class="text-center flex justify-center gap-1">
-                        <button onclick="setManualOverride('${line.date}', '✅ 手動計入')" class="btn btn-[10px] h-6 min-h-0 px-1.5 bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100">計入</button>
-                        <button onclick="setManualOverride('${line.date}', '❌ 手動排除')" class="btn btn-[10px] h-6 min-h-0 px-1.5 bg-rose-50 text-rose-700 border border-rose-300 hover:bg-rose-100">排除</button>
-                        <button onclick="resetManualOverride('${line.date}')" class="btn btn-[10px] h-6 min-h-0 px-1 text-gray-500 bg-stone-100 border hover:bg-stone-200" title="還原系統自動計算">重置</button>
+                    <td class="text-center">
+                        <div class="join">
+                            <button onclick="setManualOverride('${line.date}', '✅ 手動計入')" class="btn btn-[10px] h-6 min-h-0 px-2 bg-white text-emerald-700 border border-stone-200 hover:bg-emerald-50 join-item">計入</button>
+                            <button onclick="setManualOverride('${line.date}', '❌ 手動排除')" class="btn btn-[10px] h-6 min-h-0 px-2 bg-white text-rose-700 border border-stone-200 hover:bg-rose-50 join-item">排除</button>
+                            <button onclick="resetManualOverride('${line.date}')" class="btn btn-[10px] h-6 min-h-0 px-1.5 bg-stone-100 text-gray-500 border border-stone-200 hover:bg-stone-200 join-item" title="還原系統自動計算">✕</button>
+                        </div>
                     </td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
+                </tr>
+            `;
+        });
+
+        // ✨ 4. 插入該學年的底部小計橫條
+        finalHtml += `
+                    </tbody>
+                </table>
+                <div class="bg-stone-100 p-2 text-right text-xs border-t font-sans font-semibold text-gray-700 flex justify-end gap-4 px-4">
+                    <span>分類總計：<span class="text-black font-mono font-bold">${group.total}</span> 天</span>
+                    <span class="text-emerald-700">✅ 計入：<span class="font-mono font-bold">${group.vCount}</span> 天</span>
+                    <span class="text-red-600">❌ 排除：<span class="font-mono font-bold">${group.eCount}</span> 天</span>
+                </div>
+            </div>
+        `;
+    });
+
+    // ✨ 5. 插入全期大總和摘要區塊（放在整個容器的最底下）
+    finalHtml += `
+        <div class="mt-4 border-2 border-facultyGreen bg-emerald-50 rounded-lg p-3 text-facultyGreen flex justify-between items-center px-5 shadow-inner">
+            <div class="font-bold text-sm flex items-center gap-1.5">
+                📊 全期數據大總和 (Grand Total)
+            </div>
+            <div class="flex gap-6 text-xs font-bold">
+                <span class="text-gray-800">總通關動態：<span class="text-base font-mono underline decoration-2">${grandTotal}</span> 天</span>
+                <span class="text-emerald-800">✅ 總計入 (最終有效)：<span class="text-base font-mono underline decoration-4">${grandValid}</span> 天</span>
+                <span class="text-rose-800">❌ 總排除 (假期/週末)：<span class="text-base font-mono underline decoration-2">${grandExceed}</span> 天</span>
+            </div>
+        </div>
+    `;
+
+    // 真正將代碼渲染進網頁
+    tbodyContainer.innerHTML = finalHtml;
+}
 
         function setManualOverride(dateStr, statusType) {
             const student = studentMap.get(activeStudentIdForModal);
