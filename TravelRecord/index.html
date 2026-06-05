@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<!-- ✨ 關鍵修復：強制指定 light 主題，阻斷瀏覽器深色模式對行政表格的干擾 -->
+<html lang="zh-Hant" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,73 +24,76 @@
         }
     </script>
 </head>
-<body class="bg-stone-100 min-h-screen text-slate-800 font-sans flex flex-col">
+<!-- 強制背景為石子淺灰，字體為高對比深色 -->
+<body class="bg-stone-100 min-h-screen text-slate-900 font-sans flex flex-col">
 
     <div class="w-full bg-facultyGreen text-white p-4 shadow-lg flex justify-between items-center px-8 border-b-4 border-facultyGold">
         <h1 class="text-2xl font-bold tracking-wide flex items-center gap-2">
-            🏛️ 金融學院研究生在澳逗留天數統計系統 (13頁排版錯位修復版)
+            🏛️ 金融學院研究生在澳逗留天數統計系統 (高對比度抗深色模式版)
         </h1>
         <span class="text-sm bg-white/10 px-3 py-1 rounded-full text-amber-300 font-medium">內部行政專用版</span>
     </div>
 
     <div class="flex-grow flex p-6 gap-6 max-w-[1920px] w-full mx-auto overflow-hidden">
         
+        <!-- 左側配置面板 -->
         <div class="w-1/3 flex flex-col gap-6 overflow-y-auto pr-2">
             
-            <div class="card bg-white shadow-md border-t-4 border-facultyGreen">
+            <div class="card bg-white shadow-md border border-gray-200 border-t-4 border-t-facultyGreen">
                 <div class="card-body p-5">
                     <div class="flex justify-between items-center mb-2">
                         <h2 class="font-bold text-lg text-facultyGreen">📋 步驟一：導入學生資料 (Excel)</h2>
-                        <div id="step1Status" class="badge badge-ghost text-xs">未完成</div>
+                        <div id="step1Status" class="badge badge-ghost text-xs font-semibold">未完成</div>
                     </div>
                     <p class="text-xs text-gray-500 mb-3">請上傳包含「學生姓名」和「學號」的 Excel 檔案以建立統計底表。</p>
                     <div class="form-control w-full">
-                        <input type="file" id="excelFile" accept=".xlsx, .xls" class="file-input file-input-bordered file-input-sm w-full border-facultyGreen focus:outline-none" />
+                        <!-- 加強 input 框的背景與文字對比 -->
+                        <input type="file" id="excelFile" accept=".xlsx, .xls" class="file-input file-input-bordered file-input-sm w-full border-gray-400 bg-white text-gray-800 focus:outline-none" />
                     </div>
-                    <button onclick="importStudentList()" class="btn btn-sm bg-facultyGreen hover:bg-emerald-900 text-white mt-3 border-none">確認導入名單</button>
+                    <button onclick="importStudentList()" class="btn btn-sm bg-facultyGreen hover:bg-emerald-900 text-white mt-3 border-none shadow">確認導入名單</button>
                 </div>
             </div>
 
-            <div class="card bg-white shadow-md border-t-4 border-facultyGold">
+            <div class="card bg-white shadow-md border border-gray-200 border-t-4 border-t-facultyGold">
                 <div class="card-body p-5 space-y-4">
                     <div>
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="font-bold text-sm text-amber-800">📅 1. 配置學年統計時間段</h3>
-                            <button onclick="addAcademicYearRow()" class="btn btn-xs bg-facultyGold hover:bg-facultyGoldHover text-white border-none">➕ 新增學年</button>
+                            <button onclick="addAcademicYearRow()" class="btn btn-xs bg-facultyGold hover:bg-facultyGoldHover text-white border-none shadow">➕ 新增學年</button>
                         </div>
                         <div id="academicYearContainer" class="space-y-2"></div>
                     </div>
 
-                    <div class="divider my-1"></div>
+                    <div class="divider my-1 before:bg-gray-300 after:bg-gray-300"></div>
 
                     <div>
                         <div class="flex justify-between items-center mb-1">
                             <h3 class="font-bold text-sm text-amber-800">🎉 2. 貼上不計入日期清單 (公眾假/停課)</h3>
-                            <div id="step2Status" class="badge badge-ghost text-xs">未完成</div>
+                            <div id="step2Status" class="badge badge-ghost text-xs font-semibold">未完成</div>
                         </div>
                         <p class="text-[11px] text-gray-500 mb-2">格式支援：2026-04-30 或 30/4/2026：</p>
-                        <textarea id="holidayRawText" rows="4" placeholder="2026-05-01   勞動節&#10;2025-12-20   澳門回歸紀念日" class="textarea textarea-bordered font-mono text-xs border-facultyGold focus:outline-none w-full p-2 bg-stone-50 resize-y"></textarea>
+                        <textarea id="holidayRawText" rows="4" placeholder="2026-05-01   勞動節&#10;2025-12-20   澳門回歸紀念日" class="textarea textarea-bordered font-mono text-xs border-gray-400 focus:outline-none w-full p-2 bg-white text-gray-800 resize-y"></textarea>
                     </div>
 
-                    <button onclick="saveStep2Configurations()" class="btn btn-sm bg-facultyGold hover:bg-amber-700 text-white w-full border-none">確認配置（學年與假期）</button>
+                    <button onclick="saveStep2Configurations()" class="btn btn-sm bg-facultyGold hover:bg-amber-700 text-white w-full border-none shadow">確認配置（學年與假期）</button>
                 </div>
             </div>
 
-            <div class="card bg-white shadow-md border-t-4 border-blue-600">
+            <div class="card bg-white shadow-md border border-gray-200 border-t-4 border-t-blue-600">
                 <div class="card-body p-5">
                     <div class="flex justify-between items-center mb-2">
                         <h2 class="font-bold text-lg text-blue-700">📁 步驟三：分批導入內地出入境紀錄 (PDF)</h2>
-                        <div id="step3Status" class="badge badge-ghost text-xs">未完成</div>
+                        <div id="step3Status" class="badge badge-ghost text-xs font-semibold">未完成</div>
                     </div>
                     <p class="text-xs text-gray-500 mb-2">支持多選。後台將完美讀取多頁數據，精準解決換行錯位問題。</p>
                     <div class="form-control w-full">
-                        <input type="file" id="pdfFiles" multiple accept=".pdf" class="file-input file-input-bordered file-input-sm w-full border-blue-600" />
+                        <input type="file" id="pdfFiles" multiple accept=".pdf" class="file-input file-input-bordered file-input-sm w-full border-gray-400 bg-white text-gray-800" />
                     </div>
-                    <button onclick="processPDFFiles()" id="btnProcess" class="btn btn-sm bg-blue-600 hover:bg-blue-800 text-white mt-3 border-none">開始解析本批次</button>
+                    <button onclick="processPDFFiles()" id="btnProcess" class="btn btn-sm bg-blue-600 hover:bg-blue-800 text-white mt-3 border-none shadow">開始解析本批次</button>
                     
                     <div id="progressContainer" class="hidden space-y-1 mt-3">
-                        <progress id="progressBar" class="progress progress-info w-full" value="0" max="100"></progress>
-                        <p id="progressText" class="text-[11px] text-gray-500">準備中...</p>
+                        <progress id="progressBar" class="progress progress-info w-full bg-gray-200" value="0" max="100"></progress>
+                        <p id="progressText" class="text-[11px] text-gray-600 font-medium">準備中...</p>
                     </div>
                 </div>
             </div>
@@ -100,68 +104,72 @@
 
         </div>
 
+        <!-- 右側數據主表格 -->
         <div class="w-2/3 flex flex-col bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
             <div class="bg-stone-50 p-4 border-b border-gray-200 flex justify-between items-center px-6">
                 <div class="flex flex-col gap-0.5">
-                    <div class="font-bold text-gray-700 text-base">📊 全局學生統計進度狀態</div>
-                    <div class="text-[11px] text-gray-400 font-normal">（點擊學生的天數按鈕可查看每日明細並進行手動修正）</div>
+                    <div class="font-bold text-gray-800 text-base">📊 全局學生統計進度狀態</div>
+                    <div class="text-[11px] text-gray-500 font-normal">（點擊學生的天數按鈕可查看每日明細並進行手動修正）</div>
                 </div>
                 
                 <div class="flex items-center gap-3">
-                    <button onclick="clearSystemData()" class="btn btn-xs btn-outline btn-error font-medium px-2.5 py-1 h-auto rounded">
+                    <button onclick="clearSystemData()" class="btn btn-xs btn-outline btn-error font-semibold px-2.5 py-1 h-auto rounded bg-white">
                         🧹 清空列表數據
                     </button>
-                    <div id="globalProgressCounter" class="text-sm font-semibold text-facultyGreen bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                    <div id="globalProgressCounter" class="text-sm font-bold text-facultyGreen bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200 shadow-sm">
                         已統計：0 / 0 人 (0%)
                     </div>
                 </div>
             </div>
 
-            <div class="flex-grow overflow-x-auto overflow-y-auto p-4">
-                <table class="table table-zebra table-sm w-full border border-gray-200 rounded-lg overflow-hidden shadow-inner min-w-[800px]">
-                    <thead class="bg-facultyGreen text-white text-xs sticky top-0 z-10" id="mainTableHeader">
+            <!-- 表格主體：強制使用高清晰背景顏色與斑馬紋 -->
+            <div class="flex-grow overflow-x-auto overflow-y-auto p-4 bg-white">
+                <table class="table w-full border border-gray-200 rounded-lg overflow-hidden min-w-[800px]">
+                    <thead class="bg-facultyGreen text-white text-xs sticky top-0 z-10 shadow" id="mainTableHeader">
                         <tr>
-                            <th>序號</th>
-                            <th>學生姓名</th>
-                            <th>學號</th>
-                            <th>總逗留天數</th>
-                            <th>留服認證狀態 (≥90天)</th>
-                            <th>備註</th>
+                            <th class="w-12 text-center text-white">序號</th>
+                            <th class="text-white">學生姓名</th>
+                            <th class="w-28 text-white">學號</th>
+                            <th class="text-center bg-emerald-800 text-white font-bold">總逗留天數</th>
+                            <th class="w-36 text-white">留服認證狀態 (≥90天)</th>
+                            <th class="text-white">備註</th>
                         </tr>
                     </thead>
-                    <tbody id="mainResultTableBody">
+                    <!-- 指定文字顏色為明確的 text-gray-800，防漂白 -->
+                    <tbody id="mainResultTableBody" class="text-gray-800 font-medium">
                         <tr>
-                            <td colspan="6" class="text-center text-gray-400 py-12 text-sm">請按左側「步驟一」上傳並確認學生 Excel 名單以生成底表。</td>
+                            <td colspan="6" class="text-center text-gray-500 py-12 text-sm bg-white">請按左側「步驟一」上傳並確認學生 Excel 名單以生成底表。</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 
-            <div class="bg-stone-50 p-3 text-right text-xs text-gray-500 font-mono pr-6 border-t border-gray-200" id="dataSummaryCount">
+            <div class="bg-stone-50 p-3 text-right text-xs text-gray-600 font-mono font-bold pr-6 border-t border-gray-200" id="dataSummaryCount">
                 已生成 0 筆基礎學生數據
             </div>
         </div>
 
     </div>
 
+    <!-- 彈窗組件修復 -->
     <dialog id="duplicateModal" class="modal">
-        <div class="modal-box max-w-md">
+        <div class="modal-box max-w-md bg-white border border-gray-200 text-gray-800">
             <h3 class="font-bold text-lg text-amber-600 flex items-center gap-2">⚠️ 偵測到重複的出入境紀錄</h3>
-            <p class="py-3 text-sm text-gray-600 leading-relaxed">
-                學生 <span id="dupStudentName" class="font-bold text-black underline"></span> (<span id="dupStudentId" class="font-mono"></span>) 的數據此前已經統計過。
+            <p class="py-3 text-sm text-gray-700 leading-relaxed">
+                學生 <span id="dupStudentName" class="font-bold text-black underline"></span> (<span id="dupStudentId" class="font-mono text-black"></span>) 的數據此前已經統計過。
             </p>
             <div class="modal-action flex justify-end gap-2">
                 <button onclick="handleDupChoice('overwrite')" class="btn btn-sm btn-error text-white">🔄 覆蓋原有數據</button>
                 <button onclick="handleDupChoice('skip')" class="btn btn-sm btn-warning text-white">⏩ 略過此檔案</button>
-                <button onclick="handleDupChoice('cancel')" class="btn btn-sm btn-ghost">❌ 取消</button>
+                <button onclick="handleDupChoice('cancel')" class="btn btn-sm btn-ghost bg-stone-100 text-gray-700 hover:bg-stone-200">❌ 取消</button>
             </div>
         </div>
     </dialog>
 
-  <dialog id="detailModal" class="modal">
-        <div class="modal-box max-w-4xl overflow-hidden flex flex-col max-h-[88vh]">
+    <dialog id="detailModal" class="modal">
+        <div class="modal-box max-w-4xl overflow-hidden flex flex-col max-h-[88vh] bg-white text-gray-800 border border-gray-200">
             <h3 class="font-bold text-lg text-facultyGreen mb-1">🔍 學生出入境日期區間排查與手動修正明細</h3>
-            <p class="text-xs text-gray-500 mb-3">學生：<span id="detailStudentInfo" class="font-bold text-slate-800 text-sm"></span></p>
+            <p class="text-xs text-gray-500 mb-3">學生：<span id="detailStudentInfo" class="font-bold text-slate-900 text-sm"></span></p>
             
             <div class="bg-amber-50 border border-amber-200 text-amber-900 rounded p-2.5 text-xs mb-4 leading-relaxed">
                 💡 <b>日曆天數打卡規則</b>：系統採用穩健流機制。任何出入境當天均直接計入，無紀錄之空白天不自動補齊。若某日僅有單向「出境」或「入境」動作，將標記黃色警告供管理員人工判定。
@@ -171,16 +179,16 @@
             </div>
             
             <div class="modal-action border-t pt-3 mt-3">
-                <button onclick="document.getElementById('detailModal').close(); renderMainTable(); updateGlobalProgress();" class="btn btn-sm bg-facultyGreen hover:bg-emerald-800 text-white border-none px-6">
+                <button onclick="document.getElementById('detailModal').close(); renderMainTable(); updateGlobalProgress();" class="btn btn-sm bg-facultyGreen hover:bg-emerald-800 text-white border-none px-6 shadow">
                     💾 儲存修正並關閉視窗
                 </button>
             </div>
         </div>
     </dialog>
+
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        // --- 全局核心變量 ---
         let studentMap = new Map();     
         let studentOrder = [];          
         let exclusionDates = new Set(); 
@@ -202,8 +210,8 @@
             if (confirm("⚠️ 確定要清空所有學生數據、已導入的 PDF 紀錄嗎？")) {
                 studentMap.clear(); studentOrder = []; currentBatchFiles = []; currentBatchIndex = 0; pendingParsedData = null;
                 document.getElementById('excelFile').value = ''; document.getElementById('pdfFiles').value = '';
-                document.getElementById('step1Status').innerText = '未完成'; document.getElementById('step1Status').className = 'badge badge-ghost text-xs';
-                document.getElementById('step3Status').innerText = '未完成'; document.getElementById('step3Status').className = 'badge badge-ghost text-xs';
+                document.getElementById('step1Status').innerText = '未完成'; document.getElementById('step1Status').className = 'badge badge-ghost text-xs font-semibold';
+                document.getElementById('step3Status').innerText = '未完成'; document.getElementById('step3Status').className = 'badge badge-ghost text-xs font-semibold';
                 document.getElementById('progressContainer').classList.add('hidden');
                 renderMainTable(); updateGlobalProgress();
                 alert("🧹 系統數據已成功初始化清空！");
@@ -216,14 +224,15 @@
             const yearIdx = container.children.length + 1;
             const yearName = defaultName || `第${yearIdx}學年`;
             const div = document.createElement('div');
-            div.className = "flex items-center gap-1 bg-stone-50 p-2 rounded border border-stone-200 text-xs";
+            div.className = "flex items-center gap-1 bg-stone-50 p-2 rounded border border-stone-300 text-xs";
+            // 強制優化 Input 的背景色和邊框，抗 Dark mode
             div.innerHTML = `
-                <input type="text" value="${yearName}" class="input input-bordered input-xs w-20 font-semibold text-center py-0" />
-                <span class="text-gray-400">:</span>
-                <input type="date" class="input input-bordered input-xs flex-grow px-1" />
-                <span class="text-gray-400">至</span>
-                <input type="date" class="input input-bordered input-xs flex-grow px-1" />
-                <button onclick="this.parentElement.remove(); renderTableHeader(); renderMainTable();" class="text-red-500 hover:text-red-700 px-1 font-bold">✕</button>
+                <input type="text" value="${yearName}" class="input input-bordered input-xs w-20 font-bold text-center py-0 bg-white text-gray-800 border-gray-400" />
+                <span class="text-gray-500 font-bold">:</span>
+                <input type="date" class="input input-bordered input-xs flex-grow px-1 bg-white text-gray-800 border-gray-400" />
+                <span class="text-gray-500 font-bold">至</span>
+                <input type="date" class="input input-bordered input-xs flex-grow px-1 bg-white text-gray-800 border-gray-400" />
+                <button onclick="this.parentElement.remove(); renderTableHeader(); renderMainTable();" class="text-red-600 hover:text-red-800 px-1 font-bold text-sm">✕</button>
             `;
             container.appendChild(div);
             renderTableHeader(); renderMainTable();
@@ -272,7 +281,7 @@
                     });
                     if(studentOrder.length === 0) { alert("未能識別到學號及姓名！"); return; }
                     document.getElementById('step1Status').innerText = '✅ 已完成';
-                    document.getElementById('step1Status').className = 'badge badge-success text-white text-xs';
+                    document.getElementById('step1Status').className = 'badge badge-success text-white text-xs font-semibold';
                     renderMainTable(); updateGlobalProgress();
                     alert(`🎉 成功建立底表！共導入 ${studentOrder.length} 位學生名單。`);
                 } catch(err) { alert("讀取 Excel 發生錯誤！"); }
@@ -305,7 +314,7 @@
                 });
             }
             document.getElementById('step2Status').innerText = `✅ 已確認 (${academicYears.length}學年 / ${holidayCount}天假)`;
-            document.getElementById('step2Status').className = 'badge badge-success text-white text-xs';
+            document.getElementById('step2Status').className = 'badge badge-success text-white text-xs font-semibold';
             renderTableHeader(); renderMainTable(); updateGlobalProgress();
             alert('配置已儲存，右側天數已即時重新計算！');
         }
@@ -343,7 +352,7 @@
             }
             progressBar.value = 100; progressText.innerText = `✅ 處理完畢！`;
             document.getElementById('step3Status').innerText = '✅ 已完成';
-            document.getElementById('step3Status').className = 'badge badge-success text-white text-xs';
+            document.getElementById('step3Status').className = 'badge badge-success text-white text-xs font-semibold';
             renderMainTable(); updateGlobalProgress();
         }
 
@@ -388,10 +397,8 @@
 
         function analyzeMainlandPassportText(text, fileName) {
             let studentName = ""; let studentId = "";
-            
             const nameMatch = text.match(/(?:姓名|Name)\s*[:：]?\s*([^\s\d\r\n",]+)/); 
             if (nameMatch) studentName = nameMatch[1].trim();
-            
             const idMatch = text.match(/(?:學號|Student ID|No)\s*[:：]?\s*([A-Za-z0-9]+)/) || text.match(/\b[A-Za-z]?\d{7,11}\b/);
             if (idMatch) studentId = idMatch[0].replace(/(學號|No|[:：\s])/g, '').trim();
 
@@ -404,10 +411,7 @@
             let actionsList = [];
             const textClean = text.replace(/"/g, '');
             const tokens = textClean.split(/[\r\n\s]+/).map(t => t.trim()).filter(t => t.length > 0);
-            
-            let foundActions = []; 
-            let foundDates = [];   
-            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            let foundActions = []; let foundDates = []; const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
             tokens.forEach((token, index) => {
                 if (token.includes("出境") || token.includes("入境")) {
@@ -418,30 +422,21 @@
                     foundDates.push({ date: token, tokenIndex: index });
                 } else {
                     let innerMatch = token.match(/\d{4}-\d{2}-\d{2}/);
-                    if (innerMatch) {
-                        foundDates.push({ date: innerMatch[0], tokenIndex: index });
-                    }
+                    if (innerMatch) { foundDates.push({ date: innerMatch[0], tokenIndex: index }); }
                 }
             });
 
             foundActions.forEach(action => {
-                let bestDateObj = null;
-                let minDistance = 99999;
+                let bestDateObj = null; let minDistance = 99999;
                 foundDates.forEach(dObj => {
                     let distance = Math.abs(action.tokenIndex - dObj.tokenIndex);
-                    if (distance < minDistance && distance <= 5) {
-                        minDistance = distance;
-                        bestDateObj = dObj;
-                    }
+                    if (distance < minDistance && distance <= 5) { minDistance = distance; bestDateObj = dObj; }
                 });
-                if (bestDateObj) {
-                    actionsList.push({ date: bestDateObj.date, action: action.type });
-                }
+                if (bestDateObj) { actionsList.push({ date: bestDateObj.date, action: action.type }); }
             });
 
             if (actionsList.length === 0) {
-                const fallbackRegex = /(\d{4})[-/\.](\d{2})[-/\.](\d{2})[\s\S]{0,60}?(出境|入境)/g;
-                let m;
+                const fallbackRegex = /(\d{4})[-/\.](\d{2})[-/\.](\d{2})[\s\S]{0,60}?(出境|入境)/g; let m;
                 while ((m = fallbackRegex.exec(text)) !== null) {
                     actionsList.push({ date: `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`, action: m[4] });
                 }
@@ -462,9 +457,7 @@
         }
 
         function generateStudentStayReport(student) {
-            let dailyStatusMap = new Map(); 
-            let totalValid = 0;
-            let yearCounts = {};
+            let dailyStatusMap = new Map(); let totalValid = 0; let yearCounts = {};
             academicYears.forEach(y => yearCounts[y.name] = 0);
 
             const actions = [...(student.rawActions || [])];
@@ -482,28 +475,13 @@
                 const dayActions = dateGroup[dateStr];
                 const hasIn = dayActions.includes("入境");
                 const hasOut = dayActions.includes("出境");
-                
-                let infoStr = "";
-                let isImperfect = false;
+                let infoStr = ""; let isImperfect = false;
 
-                if (hasIn && hasOut) {
-                    infoStr = "當天有完整出入境紀錄";
-                } else if (hasOut) {
-                    infoStr = "⚠️ 當天僅有【出境】紀錄 (可能跨天留駐，需人工核對)";
-                    isImperfect = true;
-                    hasMissingWarning = true;
-                } else if (hasIn) {
-                    infoStr = "⚠️ 當天僅有【入境】紀錄 (可能跨天留駐，需人工核對)";
-                    isImperfect = true;
-                    hasMissingWarning = true;
-                }
+                if (hasIn && hasOut) { infoStr = "當天有完整出入境紀錄"; } 
+                else if (hasOut) { infoStr = "⚠️ 當天僅有【出境】紀錄 (可能跨天留駐)"; isImperfect = true; hasMissingWarning = true; } 
+                else if (hasIn) { infoStr = "⚠️ 當天僅有【入境】紀錄 (可能跨天留駐)"; isImperfect = true; hasMissingWarning = true; }
 
-                dailyStatusMap.set(dateStr, { 
-                    type: 'auto', 
-                    status: '✅ 計入', 
-                    info: infoStr,
-                    isImperfect: isImperfect
-                });
+                dailyStatusMap.set(dateStr, { type: 'auto', status: '✅ 計入', info: infoStr, isImperfect: isImperfect });
             });
 
             dailyStatusMap.forEach((data, dateStr) => {
@@ -514,23 +492,16 @@
 
                     if (dayOfWeek === 0 || dayOfWeek === 6) {
                         let weekStr = dayOfWeek === 0 ? "星期日" : "星期六";
-                        dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `週末六日 (${weekStr})` });
-                        return;
+                        dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `週末六日 (${weekStr})` }); return;
                     }
                     if (exclusionDates.has(dateStr)) {
-                        dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `公眾假期: ${holidayDescriptions[dateStr]}` });
-                        return;
+                        dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `公眾假期: ${holidayDescriptions[dateStr]}` }); return;
                     }
                     
                     let yearBelongs = null;
                     if (academicYears.length > 0) {
-                        for (let year of academicYears) {
-                            if (dateStr >= year.start && dateStr <= year.end) { yearBelongs = year.name; break; }
-                        }
-                        if (!yearBelongs) {
-                            dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: "不在任何已配置學年區間內" });
-                            return;
-                        }
+                        for (let year of academicYears) { if (dateStr >= year.start && dateStr <= year.end) { yearBelongs = year.name; break; } }
+                        if (!yearBelongs) { dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: "不在任何已配置學年區間內" }); return; }
                     }
                     data.yearBelongs = yearBelongs;
                 }
@@ -538,11 +509,8 @@
 
             if (student.manualOverrides) {
                 Object.keys(student.manualOverrides).forEach(dateStr => {
-                    let manualStatus = student.manualOverrides[dateStr]; 
-                    let yearBelongs = null;
-                    for (let year of academicYears) {
-                        if (dateStr >= year.start && dateStr <= year.end) { yearBelongs = year.name; break; }
-                    }
+                    let manualStatus = student.manualOverrides[dateStr]; let yearBelongs = null;
+                    for (let year of academicYears) { if (dateStr >= year.start && dateStr <= year.end) { yearBelongs = year.name; break; } }
                     if (manualStatus === '✅ 手動計入') {
                         dailyStatusMap.set(dateStr, { type: 'manual', status: '✅ 計入', info: "管理員手動核准計入", yearBelongs: yearBelongs, isImperfect: false });
                     } else if (manualStatus === '❌ 手動排除') {
@@ -554,177 +522,139 @@
             dailyStatusMap.forEach((data, dateStr) => {
                 if (data.status === '✅ 計入') {
                     totalValid++;
-                    if (data.yearBelongs) { 
-                        yearCounts[data.yearBelongs] = (yearCounts[data.yearBelongs] || 0) + 1; 
-                    }
+                    if (data.yearBelongs) { yearCounts[data.yearBelongs] = (yearCounts[data.yearBelongs] || 0) + 1; }
                 }
             });
 
             let sortedReportLines = [];
             dailyStatusMap.forEach((data, dateStr) => { sortedReportLines.push({ date: dateStr, ...data }); });
             sortedReportLines.sort((a, b) => new Date(a.date) - new Date(b.date));
-
-            return { 
-                total: totalValid, 
-                yearCounts: yearCounts, 
-                reportLines: sortedReportLines,
-                hasMissingWarning: hasMissingWarning 
-            };
+            return { total: totalValid, yearCounts: yearCounts, reportLines: sortedReportLines, hasMissingWarning: hasMissingWarning };
         }
 
         function showDetailModal(id) {
-            activeStudentIdForModal = id;
-            const student = studentMap.get(id);
-            if (!student || !student.parsed) return;
+            activeStudentIdForModal = id; const student = studentMap.get(id); if (!student || !student.parsed) return;
             document.getElementById('detailStudentInfo').innerText = `${student.name} (${id})`;
-            renderModalTableContent();
-            document.getElementById('detailModal').showModal();
+            renderModalTableContent(); document.getElementById('detailModal').showModal();
         }
 
-     // 🔍 升級版明細介面：按學年動態分組、獨立小計與全期大總和統計
-function renderModalTableContent() {
-    const student = studentMap.get(activeStudentIdForModal);
-    const report = generateStudentStayReport(student);
-    const tbodyContainer = document.getElementById('detailLogTableBody');
-    
-    // 清空原本的單一表格內容，改為動態容器模式
-    tbodyContainer.innerHTML = '';
+        function renderModalTableContent() {
+            const student = studentMap.get(activeStudentIdForModal);
+            const report = generateStudentStayReport(student);
+            const tbodyContainer = document.getElementById('detailLogTableBody');
+            tbodyContainer.innerHTML = '';
 
-    if (report.reportLines.length === 0) {
-        tbodyContainer.innerHTML = `<tr><td colspan="5" class="text-center text-gray-400 py-12 text-sm">該學生的 PDF 未能成功解析出任何日期數據。</td></tr>`;
-        return;
-    }
-
-    const currentYears = getAcademicYearsConfig();
-    
-    // 1. 初始化分組容器與大總和計數器
-    let groups = {};
-    currentYears.forEach(y => {
-        groups[y.name] = { lines: [], total: 0, vCount: 0, eCount: 0 };
-    });
-    groups["不在任何已配置學年區間內"] = { lines: [], total: 0, vCount: 0, eCount: 0 };
-
-    let grandTotal = 0;
-    let grandValid = 0;
-    let grandExceed = 0;
-
-    // 2. 將明細行分流到各個學年，並累加計數
-    report.reportLines.forEach(line => {
-        let belongs = line.yearBelongs || "不在任何已配置學年區間內";
-        if (!groups[belongs]) {
-            groups[belongs] = { lines: [], total: 0, vCount: 0, eCount: 0 };
-        }
-        groups[belongs].lines.push(line);
-        groups[belongs].total++;
-        
-        if (line.status === '✅ 計入') groups[belongs].vCount++;
-        else if (line.status === '❌ 排除') groups[belongs].eCount++;
-
-        // 累加大總和
-        grandTotal++;
-        if (line.status === '✅ 計入') grandValid++;
-        else if (line.status === '❌ 排除') grandExceed++;
-    });
-
-    // 3. 開始動態構建外觀 HTML (每個學年獨立成表)
-    let finalHtml = "";
-
-    Object.keys(groups).forEach(yearName => {
-        const group = groups[yearName];
-        if (group.lines.length === 0) return; // 若該學年沒有任何紀錄，則不顯示該區塊
-
-        // 構建學年標頭與表格框架
-        let isAlertYear = yearName.includes("不在任何") ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-950 border-amber-200";
-        finalHtml += `
-            <div class="mb-6 border rounded-lg overflow-hidden shadow-sm">
-                <div class="p-2 font-bold text-xs ${isAlertYear} flex justify-between items-center px-4">
-                    <span>📅 歸屬分類：${yearName}</span>
-                    <span class="badge badge-sm badge-ghost font-mono">共 ${group.lines.length} 條動態</span>
-                </div>
-                <table class="table table-compact w-full text-xs font-mono mb-0">
-                    <thead class="bg-stone-50 font-bold text-gray-600 border-b">
-                        <tr>
-                            <th class="w-24">日期</th>
-                            <th class="w-16">星期</th>
-                            <th>出入境狀態 / 假期過濾說明</th>
-                            <th class="w-28 text-center">狀態</th>
-                            <th class="w-40 text-center">手動修正</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-
-        // 填入該學年的每一天數據
-        group.lines.forEach(line => {
-            let parts = line.date.split('-');
-            const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-            const weekStr = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"][dateObj.getDay()];
-            
-            let statusBadge = '';
-            let rowBg = '';
-            if (line.status === '✅ 計入') {
-                statusBadge = `<span class="badge badge-success text-white badge-sm px-2">✅ 計入</span>`;
-            } else if (line.status === '❌ 排除') {
-                statusBadge = `<span class="badge badge-error text-white badge-sm px-2">❌ 排除</span>`;
-                rowBg = 'bg-stone-50/60 text-gray-400';
+            if (report.reportLines.length === 0) {
+                tbodyContainer.innerHTML = `<div class="text-center text-gray-500 py-12 text-sm bg-white">該學生的 PDF 未能成功解析出任何日期數據。</div>`; return;
             }
 
-            let typeTag = line.type === 'manual' ? `<span class="text-blue-600 font-bold ml-1 text-[10px] bg-blue-50 border border-blue-200 px-1 rounded">手動修正</span>` : '';
-            let warningBg = line.isImperfect ? 'bg-amber-50/70 font-semibold' : '';
+            const currentYears = getAcademicYearsConfig();
+            let groups = {};
+            currentYears.forEach(y => { groups[y.name] = { lines: [], total: 0, vCount: 0, eCount: 0 }; });
+            groups["不在任何已配置學年區間內"] = { lines: [], total: 0, vCount: 0, eCount: 0 };
+
+            let grandTotal = 0; let grandValid = 0; let grandExceed = 0;
+
+            report.reportLines.forEach(line => {
+                let belongs = line.yearBelongs || "不在任何已配置學年區間內";
+                if (!groups[belongs]) { groups[belongs] = { lines: [], total: 0, vCount: 0, eCount: 0 }; }
+                groups[belongs].lines.push(line); groups[belongs].total++;
+                if (line.status === '✅ 計入') groups[belongs].vCount++;
+                else if (line.status === '❌ 排除') groups[belongs].eCount++;
+                grandTotal++;
+                if (line.status === '✅ 計入') grandValid++; else if (line.status === '❌ 排除') grandExceed++;
+            });
+
+            let finalHtml = "";
+
+            Object.keys(groups).forEach(yearName => {
+                const group = groups[yearName]; if (group.lines.length === 0) return;
+                let isAlertYear = yearName.includes("不在任何") ? "bg-red-100 text-red-900" : "bg-amber-100 text-amber-950 border-amber-300";
+                
+                finalHtml += `
+                    <div class="mb-6 border border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white">
+                        <div class="p-2 font-bold text-xs ${isAlertYear} flex justify-between items-center px-4">
+                            <span>📅 歸屬分類：${yearName}</span>
+                            <span class="badge badge-sm badge-outline text-gray-700 font-mono">共 ${group.lines.length} 條紀錄</span>
+                        </div>
+                        <table class="table table-compact w-full text-xs font-mono mb-0 bg-white border-collapse">
+                            <thead class="bg-stone-100 font-bold text-gray-700 border-b border-gray-300">
+                                <tr>
+                                    <th class="w-24 text-gray-700">日期</th>
+                                    <th class="w-16 text-gray-700">星期</th>
+                                    <th class="text-gray-700">出入境狀態 / 假期過濾說明</th>
+                                    <th class="w-28 text-center text-gray-700">狀態</th>
+                                    <th class="w-40 text-center text-gray-700">手動修正</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-800">
+                `;
+
+                group.lines.forEach(line => {
+                    let parts = line.date.split('-');
+                    const dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+                    const weekStr = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"][dateObj.getDay()];
+                    let statusBadge = ''; let rowBg = 'bg-white';
+                    
+                    if (line.status === '✅ 計入') {
+                        statusBadge = `<span class="badge badge-success text-white badge-sm px-2 font-bold">✅ 計入</span>`;
+                    } else if (line.status === '❌ 排除') {
+                        statusBadge = `<span class="badge badge-error text-white badge-sm px-2 font-bold">❌ 排除</span>`;
+                        rowBg = 'bg-stone-50 text-gray-400';
+                    }
+
+                    let typeTag = line.type === 'manual' ? `<span class="text-blue-700 font-bold ml-1 text-[10px] bg-blue-50 border border-blue-300 px-1 rounded">手動修正</span>` : '';
+                    let warningBg = line.isImperfect ? 'bg-amber-50 text-amber-900 font-bold' : '';
+
+                    finalHtml += `
+                        <tr class="${rowBg} ${warningBg} border-b border-gray-200 hover:bg-stone-100">
+                            <td class="font-bold text-gray-950">${line.date}</td>
+                            <td class="text-gray-600">${weekStr}</td>
+                            <td><span class="text-xs">${line.info}</span> ${typeTag}</td>
+                            <td class="text-center">${statusBadge}</td>
+                            <td class="text-center">
+                                <div class="join shadow-sm">
+                                    <button onclick="setManualOverride('${line.date}', '✅ 手動計入')" class="btn btn-[10px] h-6 min-h-0 px-2 bg-white text-emerald-700 border border-gray-300 hover:bg-emerald-50 join-item font-bold">計入</button>
+                                    <button onclick="setManualOverride('${line.date}', '❌ 手動排除')" class="btn btn-[10px] h-6 min-h-0 px-2 bg-white text-rose-700 border border-gray-300 hover:bg-rose-50 join-item font-bold">排除</button>
+                                    <button onclick="resetManualOverride('${line.date}')" class="btn btn-[10px] h-6 min-h-0 px-1.5 bg-stone-100 text-gray-600 border border-gray-300 hover:bg-stone-200 join-item">✕</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                finalHtml += `
+                            </tbody>
+                        </table>
+                        <div class="bg-stone-100 p-2.5 text-right text-xs border-t border-gray-300 font-sans font-bold text-gray-700 flex justify-end gap-4 px-4">
+                            <span>分類總計：<span class="text-black font-mono font-black">${group.total}</span> 天</span>
+                            <span class="text-emerald-800">✅ 計入：<span class="font-mono font-black">${group.vCount}</span> 天</span>
+                            <span class="text-red-700">❌ 排除：<span class="font-mono font-black">${group.eCount}</span> 天</span>
+                        </div>
+                    </div>
+                `;
+            });
 
             finalHtml += `
-                <tr class="${rowBg} ${warningBg} hover:bg-stone-50">
-                    <td class="font-bold">${line.date}</td>
-                    <td>${weekStr}</td>
-                    <td><span class="text-xs">${line.info}</span> ${typeTag}</td>
-                    <td class="text-center">${statusBadge}</td>
-                    <td class="text-center">
-                        <div class="join">
-                            <button onclick="setManualOverride('${line.date}', '✅ 手動計入')" class="btn btn-[10px] h-6 min-h-0 px-2 bg-white text-emerald-700 border border-stone-200 hover:bg-emerald-50 join-item">計入</button>
-                            <button onclick="setManualOverride('${line.date}', '❌ 手動排除')" class="btn btn-[10px] h-6 min-h-0 px-2 bg-white text-rose-700 border border-stone-200 hover:bg-rose-50 join-item">排除</button>
-                            <button onclick="resetManualOverride('${line.date}')" class="btn btn-[10px] h-6 min-h-0 px-1.5 bg-stone-100 text-gray-500 border border-stone-200 hover:bg-stone-200 join-item" title="還原系統自動計算">✕</button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        });
-
-        // ✨ 4. 插入該學年的底部小計橫條
-        finalHtml += `
-                    </tbody>
-                </table>
-                <div class="bg-stone-100 p-2 text-right text-xs border-t font-sans font-semibold text-gray-700 flex justify-end gap-4 px-4">
-                    <span>分類總計：<span class="text-black font-mono font-bold">${group.total}</span> 天</span>
-                    <span class="text-emerald-700">✅ 計入：<span class="font-mono font-bold">${group.vCount}</span> 天</span>
-                    <span class="text-red-600">❌ 排除：<span class="font-mono font-bold">${group.eCount}</span> 天</span>
+                <div class="mt-4 border-2 border-facultyGreen bg-emerald-50 rounded-lg p-3 text-facultyGreen flex justify-between items-center px-5 shadow-sm">
+                    <div class="font-bold text-sm flex items-center gap-1.5 text-emerald-950">
+                        📊 全期數據大總和 (Grand Total)
+                    </div>
+                    <div class="flex gap-6 text-xs font-bold text-emerald-900">
+                        <span>總通關動態：<span class="text-base font-mono underline decoration-2 font-black text-black">${grandTotal}</span> 天</span>
+                        <span>✅ 總計入 (有效)：<span class="text-base font-mono underline decoration-4 font-black text-emerald-800">${grandValid}</span> 天</span>
+                        <span>❌ 總排除 (假期)：<span class="text-base font-mono underline decoration-2 font-black text-red-700">${grandExceed}</span> 天</span>
+                    </div>
                 </div>
-            </div>
-        `;
-    });
+            `;
 
-    // ✨ 5. 插入全期大總和摘要區塊（放在整個容器的最底下）
-    finalHtml += `
-        <div class="mt-4 border-2 border-facultyGreen bg-emerald-50 rounded-lg p-3 text-facultyGreen flex justify-between items-center px-5 shadow-inner">
-            <div class="font-bold text-sm flex items-center gap-1.5">
-                📊 全期數據大總和 (Grand Total)
-            </div>
-            <div class="flex gap-6 text-xs font-bold">
-                <span class="text-gray-800">總通關動態：<span class="text-base font-mono underline decoration-2">${grandTotal}</span> 天</span>
-                <span class="text-emerald-800">✅ 總計入 (最終有效)：<span class="text-base font-mono underline decoration-4">${grandValid}</span> 天</span>
-                <span class="text-rose-800">❌ 總排除 (假期/週末)：<span class="text-base font-mono underline decoration-2">${grandExceed}</span> 天</span>
-            </div>
-        </div>
-    `;
-
-    // 真正將代碼渲染進網頁
-    tbodyContainer.innerHTML = finalHtml;
-}
+            tbodyContainer.innerHTML = finalHtml;
+        }
 
         function setManualOverride(dateStr, statusType) {
             const student = studentMap.get(activeStudentIdForModal);
             if (!student.manualOverrides) student.manualOverrides = {};
-            student.manualOverrides[dateStr] = statusType;
-            renderModalTableContent();
+            student.manualOverrides[dateStr] = statusType; renderModalTableContent();
         }
 
         function resetManualOverride(dateStr) {
@@ -736,9 +666,9 @@ function renderModalTableContent() {
         function renderTableHeader() {
             const headerRow = document.querySelector('#mainTableHeader tr'); if(!headerRow) return;
             const years = getAcademicYearsConfig();
-            let html = `<th class="w-12 text-center">序號</th><th>學生姓名</th><th class="w-28">學號</th>`;
-            years.forEach(y => { html += `<th class="text-center bg-amber-50 text-amber-950 border-x border-stone-200">${y.name}</th>`; });
-            html += `<th class="text-center bg-emerald-800 text-white font-bold">總逗留天數</th><th class="w-36">留服認證狀態</th><th>備註</th>`;
+            let html = `<th class="w-12 text-center text-white">序號</th><th class="text-white">學生姓名</th><th class="w-28 text-white">學號</th>`;
+            years.forEach(y => { html += `<th class="text-center bg-amber-50 text-amber-950 border-x border-stone-300 font-bold">${y.name}</th>`; });
+            html += `<th class="text-center bg-emerald-800 text-white font-bold">總逗留天數</th><th class="w-36 text-white">留服認證狀態</th><th class="text-white">備註</th>`;
             headerRow.innerHTML = html;
         }
 
@@ -747,45 +677,49 @@ function renderModalTableContent() {
             tbody.innerHTML = ''; const currentYears = getAcademicYearsConfig();
 
             if (studentOrder.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="${5 + currentYears.length}" class="text-center text-gray-400 py-12 text-sm">請導入 Excel 學生名單以生成底表。</td></tr>`; return;
+                tbody.innerHTML = `<tr><td colspan="${5 + currentYears.length}" class="text-center text-gray-500 py-12 text-sm bg-white">請導入 Excel 學生名單以生成底表。</td></tr>`; return;
             }
 
             studentOrder.forEach((id, index) => {
                 const student = studentMap.get(id); if(!student) return;
                 const tr = document.createElement('tr');
-                let idCellsHtml = `<td class="text-center text-gray-400">${index + 1}</td><td class="font-semibold">${student.name}</td><td class="font-mono text-xs">${id}</td>`;
+                
+                // 💡 修改點：強制每行都擁有清晰的白底或極淡灰底，並配上明確的 text-gray-900 加深文字
+                let rowBgStyle = (index % 2 === 0) ? 'bg-white' : 'bg-stone-50/80';
+                tr.className = `${rowBgStyle} border-b border-gray-200 text-gray-900 font-medium hover:bg-stone-100 transition-colors`;
+
+                let idCellsHtml = `<td class="text-center text-gray-400 font-normal">${index + 1}</td><td class="font-bold text-gray-950">${student.name}</td><td class="font-mono text-xs text-gray-700">${id}</td>`;
                 let yearDaysHtml = ''; let totalDaysDisplay = ''; let statusBadge = ''; let remark = '';
 
                 if (!student.parsed) {
-                    tr.classList.add('opacity-60');
-                    currentYears.forEach(() => { yearDaysHtml += `<td class="text-center text-stone-300">-</td>`; });
-                    totalDaysDisplay = `--`; statusBadge = `<span class="badge bg-stone-200 text-stone-600 border-none">🔴 未上傳</span>`; remark = `等待 PDF`;
+                    tr.classList.add('opacity-70');
+                    currentYears.forEach(() => { yearDaysHtml += `<td class="text-center text-gray-400 font-normal bg-white/50">-</td>`; });
+                    totalDaysDisplay = `--`; statusBadge = `<span class="badge bg-stone-200 text-stone-700 font-bold border-none">🔴 未上傳</span>`; remark = `等待 PDF`;
                 } else {
-                    const report = generateStudentStayReport(student);
                     currentYears.forEach(year => {
-                        yearDaysHtml += `<td class="text-center font-mono text-amber-900 bg-amber-50/30">${report.yearCounts[year.name] || 0} 天</td>`;
+                        yearDaysHtml += `<td class="text-center font-mono font-bold text-amber-950 bg-amber-50/20">${report = (generateStudentStayReport(student)).yearCounts[year.name] || 0} 天</td>`;
                     });
 
-                    totalDaysDisplay = `<button onclick="showDetailModal('${id}')" class="btn btn-xs bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-200 font-bold" title="點擊查看日期明細與手動修正">${report.total} 天 🔍</button>`;
+                    const finalReport = generateStudentStayReport(student);
+                    totalDaysDisplay = `<button onclick="showDetailModal('${id}')" class="btn btn-xs bg-emerald-50 text-emerald-900 border border-emerald-400 hover:bg-emerald-200 font-bold shadow-sm px-2" title="查看明細"> ${finalReport.total} 天 🔍</button>`;
                     
-                    if (report.total >= 90) {
-                        statusBadge = `<span class="badge bg-emerald-700 text-white border-none">✅ 達標</span>`;
-                        remark = `<span class="text-emerald-700 font-semibold text-xs">符合認證要求</span>`;
+                    if (finalReport.total >= 90) {
+                        statusBadge = `<span class="badge bg-emerald-700 text-white border-none font-bold">✅ 達標</span>`;
+                        remark = `<span class="text-emerald-800 font-bold text-xs">符合認證要求</span>`;
                     } else {
-                        tr.classList.add('bg-red-50/10');
-                        statusBadge = `<span class="badge bg-red-600 text-white border-none">❌ 未達標</span>`;
-                        remark = `<span class="text-red-600 font-bold text-xs">⚠️ 差 ${90 - report.total} 天</span>`;
+                        statusBadge = `<span class="badge bg-red-600 text-white border-none font-bold">❌ 未達標</span>`;
+                        remark = `<span class="text-red-600 font-bold text-xs">⚠️ 差 ${90 - finalReport.total} 天</span>`;
                     }
 
-                    if (report.hasMissingWarning) {
-                        remark += `<div class="text-[10px] text-amber-600 font-bold mt-0.5">⚠️ 偵測到單向出/入境紀錄</div>`;
+                    if (finalReport.hasMissingWarning) {
+                        remark += `<div class="text-[10px] text-amber-700 font-bold mt-0.5">⚠️ 包含單向出/入境異常</div>`;
                     }
-
-                    let hasManual = Object.keys(student.manualOverrides || {}).length > 0;
-                    if (hasManual) remark += `<div class="text-[10px] text-blue-600 font-bold mt-0.5">🛠️ 包含手動修正數據</div>`;
+                    if (Object.keys(student.manualOverrides || {}).length > 0) {
+                        remark += `<div class="text-[10px] text-blue-700 font-bold mt-0.5">🛠️ 包含手動修正數據</div>`;
+                    }
                 }
 
-                tr.innerHTML = idCellsHtml + yearDaysHtml + `<td class="text-center bg-emerald-50/30">${totalDaysDisplay}</td><td>${statusBadge}</td><td class="text-xs text-gray-500">${remark}</td>`;
+                tr.innerHTML = idCellsHtml + yearDaysHtml + `<td class="text-center font-bold">${totalDaysDisplay}</td><td>${statusBadge}</td><td class="text-xs">${remark}</td>`;
                 tbody.appendChild(tr);
             });
             document.getElementById('dataSummaryCount').innerText = `已生成 ${studentOrder.length} 筆基礎學生數據`;
@@ -811,7 +745,6 @@ function renderModalTableContent() {
                     currentYears.forEach(year => { rowObj[year.name] = `${report.yearCounts[year.name] || 0} 天`; });
                     rowObj['總逗留天數'] = `${report.total} 天`;
                     rowObj['狀態'] = report.total >= 90 ? '達標' : '未達標';
-                    
                     let rem = report.total >= 90 ? '符合要求' : `還差 ${90 - report.total} 天`;
                     if (Object.keys(s.manualOverrides || {}).length > 0) rem += ' (包含管理員手動調整)';
                     rowObj['備註'] = rem;
@@ -825,7 +758,7 @@ function renderModalTableContent() {
             const worksheet = XLSX.utils.json_to_sheet(excelData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "多學年逗留統計");
-            XLSX.writeFile(workbook, `研究生在澳逗留天數統計總表_13頁修復版.xlsx`);
+            XLSX.writeFile(workbook, `研究生在澳逗留天數統計總表_高對比修復版.xlsx`);
         }
     </script>
 </body>
