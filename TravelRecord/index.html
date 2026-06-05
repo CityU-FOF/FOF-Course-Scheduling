@@ -27,7 +27,7 @@
 
     <div class="w-full bg-facultyGreen text-white p-4 shadow-lg flex justify-between items-center px-8 border-b-4 border-facultyGold">
         <h1 class="text-2xl font-bold tracking-wide flex items-center gap-2">
-            🏛️ 金融學院研究生在澳逗留天數統計系統 (內地紀錄優化版)
+            🏛️ 金融學院研究生在澳逗留天數統計系統 (穩定修正版)
         </h1>
         <span class="text-sm bg-white/10 px-3 py-1 rounded-full text-amber-300 font-medium">內部行政專用版</span>
     </div>
@@ -203,7 +203,7 @@
         let currentBatchFiles = [];
         let currentBatchIndex = 0;
         let pendingParsedData = null;
-        let activeStudentIdForModal = null; // 記錄當前彈窗正在操作哪位學生
+        let activeStudentIdForModal = null;
 
         window.onload = function() {
             addAcademicYearRow("第一學年");
@@ -278,7 +278,6 @@
                         }
                         if (id && name && id !== 'undefined' && name !== 'undefined') {
                             if (!studentMap.has(id)) {
-                                // 🆕 增加 manualOverrides 物件來記錄使用者的手動調改
                                 studentMap.set(id, { name: name, parsed: false, rawActions: [], manualOverrides: {}, fileName: '' });
                                 studentOrder.push(id);
                             }
@@ -372,7 +371,7 @@
             }
             if (targetStudent) {
                 targetStudent.parsed = true;
-                targetStudent.rawActions = parsed.rawActions; // 包含 {date, action} 的通關動作數組
+                targetStudent.rawActions = parsed.rawActions; 
                 targetStudent.fileName = parsed.fileName;
             } else {
                 studentMap.set(parsed.studentId, { name: parsed.studentName, parsed: true, rawActions: parsed.rawActions, manualOverrides: {}, fileName: parsed.fileName, isExtra: true });
@@ -391,7 +390,6 @@
             return fullText;
         }
 
-        // 🧠 專門解析內地出入境 PDF 文本的函數（精準抓取「出境」與「入境」动作）
         function analyzeMainlandPassportText(text, fileName) {
             let studentName = ""; let studentId = "";
             const nameMatch = text.match(/(?:姓名|Name)\s*[:：]\s*([^\s]+)/); if (nameMatch) studentName = nameMatch[1].trim();
@@ -404,18 +402,18 @@
                 else if (!studentName) { studentName = cleanName; }
             }
 
-            // 抓取「日期」加緊接其後的「出境/入境」關鍵字
             let actionsList = [];
             const actionRegex = /(\d{4})[-/](\d{2})[-/](\d{2})[^\n]{0,30}?(出境|入境)/g;
             let match;
             while ((match = actionRegex.exec(text)) !== null) {
+                // 統一格式化為 YYYY-MM-DD 純字串
+                let formattedDate = `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
                 actionsList.push({
-                    date: `${match[1]}-${match[2]}-${match[3]}`,
-                    action: match[4] // "出境" (來澳) 或 "入境" (回內地)
+                    date: formattedDate,
+                    action: match[4] 
                 });
             }
 
-            // 按時間由遠到近排序
             actionsList.sort((a, b) => new Date(a.date) - new Date(b.date));
 
             return {
@@ -426,47 +424,44 @@
             };
         }
 
-        // 核心心臟：根據內地出入境動作進行「配對區間」計算，並整合「使用者手動修正」
         function generateStudentStayReport(student) {
-            let dailyStatusMap = new Map(); // 日期 -> { type: 'auto'|'manual', status: '✅ 計入'|'❌ 不計入(原因)'|'⚠️ 缺少紀錄', actionText: '' }
+            let dailyStatusMap = new Map(); 
             let totalValid = 0;
             let yearCounts = {};
             academicYears.forEach(y => yearCounts[y.name] = 0);
 
-            // 1️⃣ 第一步：自動建立出入境配對區間
             const actions = student.rawActions || [];
             let i = 0;
             while (i < actions.length) {
                 let current = actions[i];
 
-                if (current.action === "出境") { // 內地出境 = 進入澳門 (開始留澳)
-                    // 尋找下一個配對動作
+                if (current.action === "出境") { 
                     let next = (i + 1 < actions.length) ? actions[i + 1] : null;
 
                     if (next && next.action === "入境") {
-                        // 🟢 完美配對：從 current.date 到 next.date 連續計入
                         let start = new Date(current.date);
                         let end = new Date(next.date);
                         
-                        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                        // 防止極端死循環
+                        let safetyCounter = 0;
+                        for (let d = new Date(start); d <= end && safetyCounter < 1000; d.setDate(d.getDate() + 1)) {
+                            safetyCounter++;
                             let dateStr = d.toISOString().split('T')[0];
                             let note = (dateStr === current.date) ? "內地出境(來澳)" : (dateStr === next.date ? "內地入境(返回)" : "區間留澳期間");
                             dailyStatusMap.set(dateStr, { type: 'auto', status: '✅ 計入', info: note });
                         }
-                        i += 2; // 跳過這組配對
+                        i += 2; 
                     } else {
-                        // 🔴 異常情況：出境後面還是出境，或者出境後就沒紀錄了 -> 缺少入境紀錄！
                         dailyStatusMap.set(current.date, { type: 'auto', status: '⚠️ 缺少紀錄', info: "內地出境後缺少對應入境(返回)紀錄，暫不計入" });
                         i += 1;
                     }
                 } else {
-                    // 🔴 異常情況：一開頭就是入境，或者連續入境 -> 缺少出境紀錄！
                     dailyStatusMap.set(current.date, { type: 'auto', status: '⚠️ 缺少紀錄', info: "內地入境前缺少對應出境(來澳)紀錄，暫不計入" });
                     i += 1;
                 }
             }
 
-            // 2️⃣ 第二步：掃描所有自動計入的天數，套用「週末」與「自訂公眾假」與「學年」過濾
+            // 2️⃣ 第二步：掃描所有自動計入的天數，套用「週末」、「假期」以及「學年」過濾
             dailyStatusMap.forEach((data, dateStr) => {
                 if (data.status === '✅ 計入') {
                     let dateObj = new Date(dateStr);
@@ -483,33 +478,33 @@
                         dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: `自訂假期: ${holidayDescriptions[dateStr]}` });
                         return;
                     }
-                    // 學年區間過濾
+                    
+                    // 🔒 【關鍵修正：改用安全的純字串大小寫比對，消滅時區造成的 0 天 bug】
                     let yearBelongs = null;
                     if (academicYears.length > 0) {
                         for (let year of academicYears) {
-                            let t = dateObj.getTime();
-                            if (t >= new Date(year.start).getTime() && t <= new Date(year.end).getTime()) { yearBelongs = year.name; break; }
+                            if (dateStr >= year.start && dateStr <= year.end) { 
+                                yearBelongs = year.name; 
+                                break; 
+                            }
                         }
                         if (!yearBelongs) {
                             dailyStatusMap.set(dateStr, { type: 'auto', status: '❌ 排除', info: "不在任何已配置學年區間內" });
                             return;
                         }
                     }
-                    // 通過所有考核，正式鎖定
                     data.yearBelongs = yearBelongs;
                 }
             });
 
-            // 3️⃣ 第三步：核心關鍵！強行覆蓋「使用者手動修正 (Manual Overrides)」
+            // 3️⃣ 第三步：強行覆蓋管理員手動修正
             if (student.manualOverrides) {
                 Object.keys(student.manualOverrides).forEach(dateStr => {
-                    let manualStatus = student.manualOverrides[dateStr]; // '✅ 手動計入', '❌ 手動排除', '⚠️ 手動標為缺失'
+                    let manualStatus = student.manualOverrides[dateStr]; 
                     
-                    let dateObj = new Date(dateStr);
                     let yearBelongs = null;
                     for (let year of academicYears) {
-                        let t = dateObj.getTime();
-                        if (t >= new Date(year.start).getTime() && t <= new Date(year.end).getTime()) { yearBelongs = year.name; break; }
+                        if (dateStr >= year.start && dateStr <= year.end) { yearBelongs = year.name; break; }
                     }
 
                     if (manualStatus === '✅ 手動計入') {
@@ -522,7 +517,7 @@
                 });
             }
 
-            // 4️⃣ 第四步：最後加總天數分佈
+            // 4️⃣ 第四步：最後加總天數
             let hasMissingWarning = false;
             dailyStatusMap.forEach((data, dateStr) => {
                 if (data.status === '✅ 計入') {
@@ -534,28 +529,22 @@
                 }
             });
 
-            // 將 Map 轉為有序數組以便在 Modal 渲染
             let sortedReportLines = [];
-            dailyStatusMap.forEach((data, dateStr) => {
-                sortedReportLines.push({ date: dateStr, ...data });
-            });
+            dailyStatusMap.forEach((data, dateStr) => { sortedReportLines.push({ date: dateStr, ...data }); });
             sortedReportLines.sort((a, b) => new Date(a.date) - new Date(b.date));
 
             return { total: totalValid, yearCounts: yearCounts, reportLines: sortedReportLines, hasMissingWarning: hasMissingWarning };
         }
 
-        // 打開明細排查視窗，並生成可以直接操作的按鈕
         function showDetailModal(id) {
             activeStudentIdForModal = id;
             const student = studentMap.get(id);
             if (!student || !student.parsed) return;
-            
             document.getElementById('detailStudentInfo').innerText = `${student.name} (${id})`;
             renderModalTableContent();
             document.getElementById('detailModal').showModal();
         }
 
-        // 動態生成 Modal 內表格內容與手動修正點擊事件
         function renderModalTableContent() {
             const student = studentMap.get(activeStudentIdForModal);
             const report = generateStudentStayReport(student);
@@ -563,7 +552,7 @@
             tbody.innerHTML = '';
 
             if (report.reportLines.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-400 py-6">該學生的 PDF 未能成功解析出任何日期。你可以直接在下方按鈕新增手動日期（功能預留）。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-gray-400 py-6">該學生的 PDF 未能成功解析出任何日期。</td></tr>`;
                 return;
             }
 
@@ -572,13 +561,11 @@
                 const dateObj = new Date(line.date);
                 const weekStr = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"][dateObj.getDay()];
                 
-                // 狀態顯示與色彩
                 let statusBadge = '';
                 if (line.status === '✅ 計入') statusBadge = `<span class="badge badge-success text-white badge-sm">計入</span>`;
                 else if (line.status === '❌ 排除') statusBadge = `<span class="badge badge-error text-white badge-sm">排除</span>`;
                 else if (line.status === '⚠️ 缺少紀錄') statusBadge = `<span class="badge badge-warning text-black badge-sm font-bold">缺少紀錄</span>`;
 
-                // 標記手動修正字樣
                 let typeTag = line.type === 'manual' ? `<span class="text-red-600 font-bold ml-1 text-[10px] bg-red-50 border border-red-200 px-1 rounded">(手動修正)</span>` : '';
 
                 tr.innerHTML = `
@@ -597,20 +584,16 @@
             });
         }
 
-        // 使用者點擊修正按鈕時觸發
         function setManualOverride(dateStr, statusType) {
             const student = studentMap.get(activeStudentIdForModal);
             if (!student.manualOverrides) student.manualOverrides = {};
             student.manualOverrides[dateStr] = statusType;
-            renderModalTableContent(); // 立即重新渲染視窗
+            renderModalTableContent();
         }
 
-        // 重置還原系統自動判斷
         function resetManualOverride(dateStr) {
             const student = studentMap.get(activeStudentIdForModal);
-            if (student.manualOverrides && student.manualOverrides[dateStr]) {
-                delete student.manualOverrides[dateStr];
-            }
+            if (student.manualOverrides && student.manualOverrides[dateStr]) { delete student.manualOverrides[dateStr]; }
             renderModalTableContent();
         }
 
@@ -658,7 +641,6 @@
                         remark = `<span class="text-red-600 font-bold text-xs">⚠️ 差 ${90 - report.total} 天</span>`;
                     }
 
-                    // 🆕 如果有手動修正或缺少紀錄，在備註中亮起提示
                     let hasManual = Object.keys(student.manualOverrides || {}).length > 0;
                     if (hasManual) remark += `<div class="text-[10px] text-blue-600 font-bold mt-0.5">🛠️ 包含手動修正數據</div>`;
                     if (report.hasMissingWarning) remark += `<div class="text-[10px] text-amber-600 font-bold mt-0.5">⚠️ 存在缺少紀錄異常</div>`;
@@ -705,7 +687,7 @@
             const worksheet = XLSX.utils.json_to_sheet(excelData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "多學年逗留統計");
-            XLSX.writeFile(workbook, `研究生在澳逗留天數統計總表_內地修正版.xlsx`);
+            XLSX.writeFile(workbook, `研究生在澳逗留天數統計總表_穩健版.xlsx`);
         }
     </script>
 </body>
