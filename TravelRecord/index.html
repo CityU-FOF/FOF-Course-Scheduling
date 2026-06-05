@@ -102,9 +102,18 @@
 
         <div class="w-2/3 flex flex-col bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
             <div class="bg-stone-50 p-4 border-b border-gray-200 flex justify-between items-center px-6">
-                <div class="font-bold text-gray-700 text-base">📊 全局學生統計進度狀態 <span class="text-xs text-gray-400 font-normal">（點擊學生的天數可查看日期檢查明細）</span></div>
-                <div id="globalProgressCounter" class="text-sm font-semibold text-facultyGreen bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                    已統計：0 / 0 人 (0%)
+                <div class="flex flex-col gap-0.5">
+                    <div class="font-bold text-gray-700 text-base">📊 全局學生統計進度狀態</div>
+                    <div class="text-[11px] text-gray-400 font-normal">（點擊學生的天數可查看日期檢查明細）</div>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <button onclick="clearSystemData()" class="btn btn-xs btn-outline btn-error font-medium px-2.5 py-1 h-auto rounded">
+                        🧹 清空列表數據
+                    </button>
+                    <div id="globalProgressCounter" class="text-sm font-semibold text-facultyGreen bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+                        已統計：0 / 0 人 (0%)
+                    </div>
                 </div>
             </div>
 
@@ -166,7 +175,7 @@
 
         // --- 全局核心變量 ---
         let studentMap = new Map();     
-        let studentOrder = [];          // 修正：補回此前遺漏的變量聲明
+        let studentOrder = [];          
         let exclusionDates = new Set(); 
         let holidayDescriptions = {};   
         let academicYears = []; 
@@ -179,6 +188,41 @@
             addAcademicYearRow("第一學年");
             renderTableHeader();
         };
+
+        // 🆕 新增：清空列表數據函數
+        function clearSystemData() {
+            if (studentOrder.length === 0) {
+                alert("當前列表中本來就沒有數據，無需清空。");
+                return;
+            }
+            
+            if (confirm("⚠️ 確定要清空當前列表的所有學生數據、已導入的 PDF 紀錄以及統計結果嗎？（此操作不可復原，但學年時間段與假期配置將會保留）")) {
+                studentMap.clear();
+                studentOrder = [];
+                currentBatchFiles = [];
+                currentBatchIndex = 0;
+                pendingParsedData = null;
+
+                // 重置檔案輸入框
+                document.getElementById('excelFile').value = '';
+                document.getElementById('pdfFiles').value = '';
+                
+                // 重置左側狀態標籤
+                document.getElementById('step1Status').innerText = '未完成';
+                document.getElementById('step1Status').className = 'badge badge-ghost text-xs';
+                document.getElementById('step3Status').innerText = '未完成';
+                document.getElementById('step3Status').className = 'badge badge-ghost text-xs';
+                
+                // 隱藏進度條
+                document.getElementById('progressContainer').classList.add('hidden');
+
+                // 重新渲染空白大表
+                renderMainTable();
+                updateGlobalProgress();
+                
+                alert("🧹 系統數據已成功初始化清空！可以重新導入新的學生名單。");
+            }
+        }
 
         function addAcademicYearRow(defaultName = "") {
             const container = document.getElementById('academicYearContainer');
@@ -345,6 +389,8 @@
             }
             progressBar.value = 100;
             progressText.innerText = `✅ 處理完畢！`;
+            document.getElementById('step3Status').innerText = '✅ 已完成';
+            document.getElementById('step3Status').className = 'badge badge-success text-white text-xs';
             renderMainTable(); updateGlobalProgress();
         }
 
