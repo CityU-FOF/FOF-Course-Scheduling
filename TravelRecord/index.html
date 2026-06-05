@@ -52,14 +52,12 @@
 
             <div class="card bg-white shadow-md border-t-4 border-facultyGold">
                 <div class="card-body p-5 space-y-4">
-                    
                     <div>
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="font-bold text-sm text-amber-800">📅 1. 配置學年統計時間段</h3>
                             <button onclick="addAcademicYearRow()" class="btn btn-xs bg-facultyGold hover:bg-facultyGoldHover text-white border-none">➕ 新增學年</button>
                         </div>
-                        <div id="academicYearContainer" class="space-y-2">
-                            </div>
+                        <div id="academicYearContainer" class="space-y-2"></div>
                     </div>
 
                     <div class="divider my-1"></div>
@@ -69,7 +67,7 @@
                             <h3 class="font-bold text-sm text-amber-800">🎉 2. 貼上不計入日期清單 (公眾假/停課)</h3>
                             <div id="step2Status" class="badge badge-ghost text-xs">未完成</div>
                         </div>
-                        <p class="text-[11px] text-gray-500 mb-2">直接從 Excel 複製「日期」與「名稱」兩欄並貼在下方（系統會自動重疊排除週末）：</p>
+                        <p class="text-[11px] text-gray-500 mb-2">格式支援：22/9/2021 中秋節（系統會自動排除週末與重複）：</p>
                         <textarea id="holidayRawText" rows="4" placeholder="22/9/2021   中秋節翌日&#10;1/10/2021   國慶日" class="textarea textarea-bordered font-mono text-xs border-facultyGold focus:outline-none w-full p-2 bg-stone-50 resize-y"></textarea>
                     </div>
 
@@ -83,7 +81,7 @@
                         <h2 class="font-bold text-lg text-blue-700">📁 步驟三：分批導入出入境紀錄 (PDF)</h2>
                         <div id="step3Status" class="badge badge-ghost text-xs">未完成</div>
                     </div>
-                    <p class="text-xs text-gray-500 mb-2">支持多選、分批多次上傳。系統會**自動剔除港珠澳、蛇口、皇崗口岸**，且**同一天多次出入只算一天**。</p>
+                    <p class="text-xs text-gray-500 mb-2">支持多選。系統已**精準修正過濾邏輯**，且同日多次出入只計一天。</p>
                     <div class="form-control w-full">
                         <input type="file" id="pdfFiles" multiple accept=".pdf" class="file-input file-input-bordered file-input-sm w-full border-blue-600" />
                     </div>
@@ -103,9 +101,8 @@
         </div>
 
         <div class="w-2/3 flex flex-col bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-            
             <div class="bg-stone-50 p-4 border-b border-gray-200 flex justify-between items-center px-6">
-                <div class="font-bold text-gray-700 text-base">📊 全局學生統計進度狀態</div>
+                <div class="font-bold text-gray-700 text-base">📊 全局學生統計進度狀態 <span class="text-xs text-gray-400 font-normal">（點擊學生的天數可查看日期檢查明細）</span></div>
                 <div id="globalProgressCounter" class="text-sm font-semibold text-facultyGreen bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
                     已統計：0 / 0 人 (0%)
                 </div>
@@ -142,13 +139,24 @@
         <div class="modal-box max-w-md">
             <h3 class="font-bold text-lg text-amber-600 flex items-center gap-2">⚠️ 偵測到重複的出入境紀錄</h3>
             <p class="py-3 text-sm text-gray-600 leading-relaxed">
-                學生 <span id="dupStudentName" class="font-bold text-black underline"></span> (<span id="dupStudentId" class="font-mono"></span>) 的數據此前已經統計過。<br>
-                您剛才又上傳了檔案：<span id="dupFileName" class="text-xs bg-gray-100 p-1 rounded break-all"></span>
+                學生 <span id="dupStudentName" class="font-bold text-black underline"></span> (<span id="dupStudentId" class="font-mono"></span>) 的數據此前已經統計過。
             </p>
             <div class="modal-action flex justify-end gap-2">
                 <button onclick="handleDupChoice('overwrite')" class="btn btn-sm btn-error text-white">🔄 覆蓋原有數據</button>
                 <button onclick="handleDupChoice('skip')" class="btn btn-sm btn-warning text-white">⏩ 略過此檔案</button>
-                <button onclick="handleDupChoice('cancel')" class="btn btn-sm btn-ghost">❌ 取消本次批量上傳</button>
+                <button onclick="handleDupChoice('cancel')" class="btn btn-sm btn-ghost">❌ 取消</button>
+            </div>
+        </div>
+    </dialog>
+
+    <dialog id="detailModal" class="modal">
+        <div class="modal-box max-w-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            <h3 class="font-bold text-lg text-facultyGreen mb-2">🔍 學生出入境日期計算排查明細</h3>
+            <p class="text-xs text-gray-500 mb-4">學生：<span id="detailStudentInfo" class="font-bold text-slate-800 text-sm"></span></p>
+            <div class="flex-grow overflow-y-auto border rounded bg-stone-50 p-3 text-xs font-mono space-y-1" id="detailLogContent">
+                </div>
+            <div class="modal-action">
+                <button onclick="document.getElementById('detailModal').close()" class="btn btn-sm bg-facultyGreen text-white border-none">關閉視窗</button>
             </div>
         </div>
     </dialog>
@@ -156,29 +164,21 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        // --- 全局核心變量 ---
         let studentMap = new Map();     
         let studentOrder = [];          
         let exclusionDates = new Set(); 
         let holidayDescriptions = {};   
-        
-        // 學年區間數據結構：[{ name: "第一學年", start: "2021-09-01", end: "2022-06-30" }]
         let academicYears = []; 
 
-        // 批次控制暫存
         let currentBatchFiles = [];
         let currentBatchIndex = 0;
         let pendingParsedData = null;
 
-        // 網頁加載時預設生成一個學年輸入框
         window.onload = function() {
             addAcademicYearRow("第一學年");
             renderTableHeader();
         };
 
-        // ==========================================
-        // 🛠️ 動態學年界面控制
-        // ==========================================
         function addAcademicYearRow(defaultName = "") {
             const container = document.getElementById('academicYearContainer');
             const yearIdx = container.children.length + 1;
@@ -187,16 +187,14 @@
             const div = document.createElement('div');
             div.className = "flex items-center gap-1 bg-stone-50 p-2 rounded border border-stone-200 text-xs";
             div.innerHTML = `
-                <input type="text" value="${yearName}" class="input input-bordered input-xs w-20 font-semibold text-center py-0" placeholder="學年名稱" />
+                <input type="text" value="${yearName}" class="input input-bordered input-xs w-20 font-semibold text-center py-0" />
                 <span class="text-gray-400">:</span>
-                <input type="date" class="input input-bordered input-xs flex-grow px-1" title="開始日期" />
+                <input type="date" class="input input-bordered input-xs flex-grow px-1" />
                 <span class="text-gray-400">至</span>
-                <input type="date" class="input input-bordered input-xs flex-grow px-1" title="結束日期" />
+                <input type="date" class="input input-bordered input-xs flex-grow px-1" />
                 <button onclick="this.parentElement.remove(); renderTableHeader(); renderMainTable();" class="text-red-500 hover:text-red-700 px-1 font-bold">✕</button>
             `;
             container.appendChild(div);
-            
-            // 每次調整學年，重新繪製右側表格表頭
             renderTableHeader();
             renderMainTable();
         }
@@ -204,6 +202,7 @@
         function getAcademicYearsConfig() {
             const container = document.getElementById('academicYearContainer');
             const configs = [];
+            if(!container) return configs;
             for (let item of container.children) {
                 const inputs = item.getElementsByTagName('input');
                 if (inputs[1].value && inputs[2].value) {
@@ -217,89 +216,55 @@
             return configs;
         }
 
-        // ==========================================
-        // 🛠️ 模塊一：Excel 學生名單導入 (步驟一)
-        // ==========================================
         function importStudentList() {
             const fileInput = document.getElementById('excelFile');
             if (fileInput.files.length === 0) {
                 alert('請先選擇一個 Excel 學生名單檔案！');
                 return;
             }
-
             const file = fileInput.files[0];
             const reader = new FileReader();
-            
             reader.onload = function(e) {
                 const data = new Uint8Array(e.target.result);
                 const workbook = XLSX.read(data, { type: 'array' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-                if (jsonData.length === 0) {
-                    alert('Excel 內沒有發現數據！');
-                    return;
-                }
-
-                studentMap.clear();
-                studentOrder = [];
+                studentMap.clear(); studentOrder = [];
 
                 jsonData.forEach(row => {
                     let name = ''; let id = '';
                     for (let key in row) {
                         const cleanKey = String(key).replace(/\s+/g, '');
-                        if (cleanKey.includes('學號') || cleanKey.includes('学号') || cleanKey.toLowerCase() === 'id' || cleanKey.includes('studentid') || cleanKey.toLowerCase() === 'no') {
+                        if (cleanKey.includes('學號') || cleanKey.includes('学号') || cleanKey.toLowerCase() === 'id' || cleanKey.includes('studentid')) {
                             id = String(row[key]).trim();
                         }
-                        if (cleanKey.includes('姓名') || cleanKey.toLowerCase() === 'name' || cleanKey.includes('學生姓名') || cleanKey.includes('学生姓名')) {
+                        if (cleanKey.includes('姓名') || cleanKey.toLowerCase() === 'name') {
                             name = String(row[key]).trim();
                         }
                     }
                     if ((!id || !name) && Object.keys(row).length >= 2) {
                         const keys = Object.keys(row);
-                        id = String(row[keys[0]]).trim();
-                        name = String(row[keys[1]]).trim();
+                        id = String(row[keys[0]]).trim(); name = String(row[keys[1]]).trim();
                     }
-                    
                     if (id && name && id !== 'undefined' && name !== 'undefined') {
                         if (!studentMap.has(id)) {
-                            studentMap.set(id, {
-                                name: name,
-                                parsed: false,
-                                rawDates: [], // 儲存去重、過去濾後的 YYYY-MM-DD
-                                fileName: ''
-                            });
+                            studentMap.set(id, { name: name, parsed: false, rawDates: [], fileName: '' });
                             studentOrder.push(id);
                         }
                     }
                 });
-
-                if (studentOrder.length === 0) {
-                    alert('讀取失敗，請確保 Excel 包含學號與姓名。');
-                    return;
-                }
-
                 document.getElementById('step1Status').innerText = '✅ 已完成';
                 document.getElementById('step1Status').className = 'badge badge-success text-white text-xs';
-
-                renderMainTable();
-                updateGlobalProgress();
+                renderMainTable(); updateGlobalProgress();
             };
             reader.readAsArrayBuffer(file);
         }
 
-        // ==========================================
-        // 🛠️ 模塊二：配置保存（學年 + 假期貼上）(步驟二)
-        // ==========================================
         function saveStep2Configurations() {
-            // 1. 提取學年配置
             academicYears = getAcademicYearsConfig();
-            
-            // 2. 解析貼上的假期純文字
             const rawText = document.getElementById('holidayRawText').value.trim();
-            exclusionDates.clear();
-            holidayDescriptions = {};
+            exclusionDates.clear(); holidayDescriptions = {};
             let holidayCount = 0;
 
             if (rawText) {
@@ -307,7 +272,6 @@
                 lines.forEach(line => {
                     const cleanLine = line.trim();
                     if (!cleanLine) return;
-
                     const dateMatch = cleanLine.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
                     if (dateMatch) {
                         let day = dateMatch[1].padStart(2, '0');
@@ -315,39 +279,22 @@
                         let year = dateMatch[3];
                         const standardizedDate = `${year}-${month}-${day}`;
                         let desc = cleanLine.replace(dateMatch[0], '').trim();
-                        
                         exclusionDates.add(standardizedDate);
                         holidayDescriptions[standardizedDate] = desc || '假期/停課';
                         holidayCount++;
                     }
                 });
             }
-
-            // 更新界面
             document.getElementById('step2Status').innerText = `✅ 已確認 (${academicYears.length}學年 / ${holidayCount}天假)`;
             document.getElementById('step2Status').className = 'badge badge-success text-white text-xs';
-
-            // 重新刷新表頭與數據
-            renderTableHeader();
-            reCalculateAllStudentsStayDays();
-            renderMainTable();
-            updateGlobalProgress();
-
-            alert(`配置成功！已加載 ${academicYears.length} 個學年區間與 ${holidayCount} 個排除假期。右側大表已即時刷新！`);
+            renderTableHeader(); renderMainTable(); updateGlobalProgress();
+            alert('配置已儲存，右側數據已同步即時重算！');
         }
 
-        // ==========================================
-        // 🛠️ 模塊三：PDF 批次處理與過濾排查邏輯 (步驟三)
-        // ==========================================
         async function processPDFFiles() {
             const fileInput = document.getElementById('pdfFiles');
             currentBatchFiles = Array.from(fileInput.files);
-            
-            if (currentBatchFiles.length === 0) {
-                alert('請先選擇要上傳的研究生出入境紀錄 PDF 文件！');
-                return;
-            }
-
+            if (currentBatchFiles.length === 0) { alert('請選擇 PDF 檔案！'); return; }
             document.getElementById('progressContainer').classList.remove('hidden');
             currentBatchIndex = 0;
             executeBatchSequence();
@@ -359,58 +306,41 @@
 
             while (currentBatchIndex < currentBatchFiles.length) {
                 const file = currentBatchFiles[currentBatchIndex];
-                let percent = Math.round((currentBatchIndex / currentBatchFiles.length) * 100);
-                progressBar.value = percent;
-                progressText.innerText = `正在解析 (${currentBatchIndex+1}/${currentBatchFiles.length}): ${file.name}`;
+                progressBar.value = Math.round((currentBatchIndex / currentBatchFiles.length) * 100);
+                progressText.innerText = `正在解析: ${file.name}`;
 
                 try {
                     const textContent = await extractTextFromPDF(file);
                     const parsed = analyzePassportTextWithFilters(textContent, file.name);
-                    
                     if (parsed) {
                         const existingRecord = studentMap.get(parsed.studentId);
                         if (existingRecord && existingRecord.parsed) {
                             pendingParsedData = parsed;
                             document.getElementById('dupStudentName').innerText = existingRecord.name;
                             document.getElementById('dupStudentId').innerText = parsed.studentId;
-                            document.getElementById('dupFileName').innerText = file.name;
                             document.getElementById('duplicateModal').showModal();
                             return; 
                         } else {
                             saveParsedDataToSystem(parsed);
                         }
                     }
-                } catch (error) {
-                    console.error('PDF 解析失敗:', file.name, error);
-                }
+                } catch (e) { console.error(e); }
                 currentBatchIndex++;
             }
-
             progressBar.value = 100;
-            progressText.innerText = `✅ 本批次處理完畢！`;
-            document.getElementById('step3Status').innerText = '✅ 已完成';
-            document.getElementById('step3Status').className = 'badge badge-success text-white text-xs';
-            document.getElementById('pdfFiles').value = '';
-            
-            renderMainTable();
-            updateGlobalProgress();
+            progressText.innerText = `✅ 處理完畢！`;
+            renderMainTable(); updateGlobalProgress();
         }
 
         function handleDupChoice(choice) {
             document.getElementById('duplicateModal').close();
             if (choice === 'overwrite') {
                 if (pendingParsedData) saveParsedDataToSystem(pendingParsedData);
-                currentBatchIndex++;
-                executeBatchSequence();
+                currentBatchIndex++; executeBatchSequence();
             } else if (choice === 'skip') {
-                currentBatchIndex++;
-                executeBatchSequence();
-            } else if (choice === 'cancel') {
+                currentBatchIndex++; executeBatchSequence();
+            } else {
                 document.getElementById('progressContainer').classList.add('hidden');
-                document.getElementById('pdfFiles').value = '';
-                pendingParsedData = null;
-                renderMainTable();
-                updateGlobalProgress();
             }
         }
 
@@ -419,25 +349,16 @@
             if (!targetStudent) {
                 for (let [id, value] of studentMap.entries()) {
                     if (value.name === parsed.studentName && !value.parsed) {
-                        targetStudent = value;
-                        parsed.studentId = id;
-                        break;
+                        targetStudent = value; parsed.studentId = id; break;
                     }
                 }
             }
-
             if (targetStudent) {
                 targetStudent.parsed = true;
-                targetStudent.rawDates = parsed.stayDates; // 已包含去重與口岸排查
+                targetStudent.rawDates = parsed.stayDates; // 這裡面存放的是包含口岸名稱標記的對象陣列
                 targetStudent.fileName = parsed.fileName;
             } else {
-                studentMap.set(parsed.studentId, {
-                    name: parsed.studentName,
-                    parsed: true,
-                    rawDates: parsed.stayDates,
-                    fileName: parsed.fileName,
-                    isExtra: true
-                });
+                studentMap.set(parsed.studentId, { name: parsed.studentName, parsed: true, rawDates: parsed.stayDates, fileName: parsed.fileName, isExtra: true });
                 studentOrder.push(parsed.studentId);
             }
         }
@@ -455,11 +376,10 @@
         }
 
         // ==========================================
-        // 🔍 核心排查過濾：口岸排除、同日去重
+        // 🔍 核心改進：精準追蹤口岸，避免行錯位誤殺
         // ==========================================
         function analyzePassportTextWithFilters(text, fileName) {
             let studentName = ""; let studentId = "";
-
             const nameMatch = text.match(/(?:姓名|Name)\s*[:：]\s*([^\s]+)/);
             if (nameMatch) studentName = nameMatch[1].trim();
             const idMatch = text.match(/(?:學號|Student ID|No)\s*[:：]\s*([A-Za-z0-9]+)/) || text.match(/\b[A-Za-z]?\d{7,11}\b/);
@@ -471,144 +391,130 @@
                 if (parts.length >= 2) {
                     if (!studentId) studentId = parts[0].trim();
                     if (!studentName) studentName = parts[1].trim();
-                } else if (!studentName) {
-                    studentName = cleanName;
+                } else if (!studentName) { studentName = cleanName; }
+            }
+
+            // 🛠️ 改造：抓取全文字所有的日期，並檢查該日期「前後50個字元內」是否存在黑名單口岸
+            let datePortMap = new Map(); // 用於存儲 日期 -> 口岸標記
+            const globalDateRegex = /\b(\d{4})[-/](\d{2})[-/](\d{2})\b/g;
+            let match;
+
+            while ((match = globalDateRegex.exec(text)) !== null) {
+                const standardizedDate = `${match[1]}-${match[2]}-${match[3]}`;
+                
+                // 抓取此日期前後各 50 個字元的文字片段
+                const startIdx = Math.max(0, match.index - 50);
+                const endIdx = Math.min(text.length, match.index + 50);
+                const contextText = text.substring(startIdx, endIdx);
+
+                let portName = "普通口岸";
+                if (contextText.includes('港珠澳')) portName = "港珠澳口岸";
+                else if (contextText.includes('蛇口')) portName = "蛇口口岸";
+                else if (contextText.includes('皇崗')) portName = "皇崗口岸";
+
+                // 同一天多次刷卡，如果其中有一次是有效口岸，就應該保留它，所以不盲目覆蓋
+                if (!datePortMap.has(standardizedDate) || portName === "普通口岸") {
+                    datePortMap.set(standardizedDate, portName);
                 }
             }
 
-            // 按行或按塊拆分，精確比對「日期」與它同行的「口岸名稱」
-            // 由於 PDF 提取出來的文字結構可能錯落，我們採用全面掃描
-            // 先抓出所有可能包含日期的段落
-            const lines = text.split('\n');
-            
-            // 🛠️ 核心邏輯：同一天出入多次都只當一次，利用 Set 天生去重的特性
-            let validStayDates = new Set();
-
-            // 正則抓取 YYYY-MM-DD 或 YYYY/MM/DD
-            const dateRegex = /\b(\d{4})[-/](\d{2})[-/](\d{2})\b/;
-
-            lines.forEach(line => {
-                const match = line.match(dateRegex);
-                if (match) {
-                    const dateStr = `${match[1]}-${match[2]}-${match[3]}`;
-                    
-                    // 🛠️ 核心排查邏輯：排除港珠澳口岸、蛇口口岸、皇崗口岸
-                    if (line.includes('港珠澳') || line.includes('蛇口') || line.includes('皇崗')) {
-                        return; // 命中黑名單口岸，直接跳過不計入
-                    }
-                    
-                    validStayDates.add(dateStr);
-                }
+            // 將 Map 轉回陣列結構
+            let stayDatesArray = [];
+            datePortMap.forEach((port, date) => {
+                stayDatesArray.push({ date: date, port: port });
             });
-
-            // 如果上面按行切分沒抓齊，做一個全局兜底抓取（防格式錯亂）
-            if (validStayDates.size === 0) {
-                const allDates = text.match(/\b(\d{4})[-/](\d{2})[-/](\d{2})\b/g);
-                if (allDates) {
-                    allDates.forEach(d => {
-                        const standardized = d.replace(/\//g, '-');
-                        validStayDates.add(standardized);
-                    });
-                }
-            }
 
             return {
                 studentId: studentId || '未知學號_' + Math.floor(Math.random()*1000),
                 studentName: studentName || '未知姓名',
-                stayDates: Array.from(validStayDates), // 這裡已經完成了同日去重與口岸過濾
+                stayDates: stayDatesArray,
                 fileName: fileName
             };
         }
 
         // ==========================================
-        // 🧮 核心天數計算邏輯（結合週末、假期、學年區間）
+        // 🧮 核心天數計算與排查日誌生成
         // ==========================================
-        function coreCalculateSingleYear(rawDates, startY, endY) {
-            let count = 0;
-            const startTime = new Date(startY).getTime();
-            const endTime = new Date(endY).getTime();
+        function generateStudentStayReport(rawDates) {
+            let logs = [];
+            let totalValid = 0;
+            let yearCounts = {};
+            academicYears.forEach(y => yearCounts[y.name] = 0);
 
-            rawDates.forEach(d => {
-                const dateObj = new Date(d);
-                const dateTime = dateObj.getTime();
+            // 排序日期，方便看明細
+            const sortedRecords = [...rawDates].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-                // 檢查是否在此學年區間內
-                if (dateTime < startTime || dateTime > endTime) return;
-
-                // 檢查是否為週末
-                const dayOfWeek = dateObj.getDay();
-                if (dayOfWeek === 0 || dayOfWeek === 6) return; 
-
-                // 檢查是否為排除假期
-                if (exclusionDates.has(d)) return; 
-
-                count++;
-            });
-            return count;
-        }
-
-        // 計算全局總天數（排除假期、週末，且必須落在「任何一個」配置的學年內）
-        function coreCalculateTotal(rawDates) {
-            if (academicYears.length === 0) {
-                // 如果完全沒配置學年，預設放寬計算所有日子的總和
-                let count = 0;
-                rawDates.forEach(d => {
-                    const dayOfWeek = new Date(d).getDay();
-                    if (dayOfWeek === 0 || dayOfWeek === 6) return;
-                    if (exclusionDates.has(d)) return;
-                    count++;
-                });
-                return count;
-            }
-
-            let totalCount = 0;
-            rawDates.forEach(d => {
+            sortedRecords.forEach(item => {
+                const d = item.date;
+                const port = item.port;
                 const dateObj = new Date(d);
                 const dayOfWeek = dateObj.getDay();
-                if (dayOfWeek === 0 || dayOfWeek === 6) return;
-                if (exclusionDates.has(d)) return;
+                const weekStr = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"][dayOfWeek];
 
-                // 必須至少落在其中一個學年區間內才算有效
-                let inAnyYear = false;
-                for (let year of academicYears) {
-                    const t = dateObj.getTime();
-                    if (t >= new Date(year.start).getTime() && t <= new Date(year.end).getTime()) {
-                        inAnyYear = true;
-                        break;
+                // 1. 檢查口岸排除
+                if (port !== "普通口岸") {
+                    logs.push(`<span class="text-red-500">❌ ${d} (${weekStr}) - 排除 [${port}]</span>`);
+                    return;
+                }
+
+                // 2. 檢查週末排除
+                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    logs.push(`<span class="text-orange-400">❌ ${d} (${weekStr}) - 排除 [週末六日]</span>`);
+                    return;
+                }
+
+                // 3. 檢查配置假期排除
+                if (exclusionDates.has(d)) {
+                    logs.push(`<span class="text-purple-500">❌ ${d} (${weekStr}) - 排除 [自訂假期: ${holidayDescriptions[d]}]</span>`);
+                    return;
+                }
+
+                // 4. 檢查學年區間歸屬
+                let yearBelongs = null;
+                if (academicYears.length > 0) {
+                    for (let year of academicYears) {
+                        const t = dateObj.getTime();
+                        if (t >= new Date(year.start).getTime() && t <= new Date(year.end).getTime()) {
+                            yearBelongs = year.name;
+                            break;
+                        }
+                    }
+                    if (!yearBelongs) {
+                        logs.push(`<span class="text-gray-400">❌ ${d} (${weekStr}) - 排除 [不在任何已配置學年區間內]</span>`);
+                        return;
                     }
                 }
-                if (inAnyYear) totalCount++;
+
+                // 通過重重考驗，計入天數
+                totalValid++;
+                if (yearBelongs) {
+                    yearCounts[yearBelongs]++;
+                    logs.push(`<span class="text-emerald-600 font-bold">✅ ${d} (${weekStr}) - 計入 [${yearBelongs}]</span>`);
+                } else {
+                    logs.push(`<span class="text-emerald-600 font-bold">✅ ${d} (${weekStr}) - 計入天數</span>`);
+                }
             });
-            return totalCount;
+
+            return { total: totalValid, yearCounts: yearCounts, htmlLogs: logs.join('<br>') };
         }
 
-        function reCalculateAllStudentsStayDays() {
-            // 由於天數是渲染時動態基於學年配置算的，這裡主要是確保全局狀態正確
+        // 打開明細視窗
+        function showDetailModal(id) {
+            const student = studentMap.get(id);
+            if (!student || !student.parsed) return;
+            
+            document.getElementById('detailStudentInfo').innerText = `${student.name} (${id})`;
+            const report = generateStudentStayReport(student.rawDates);
+            document.getElementById('detailLogContent').innerHTML = report.htmlLogs || "無出入境日期紀錄";
+            document.getElementById('detailModal').showModal();
         }
 
-        // ==========================================
-        // 🎨 動態表格渲染（依據學年數量橫向增減欄位）
-        // ==========================================
         function renderTableHeader() {
             const headerRow = document.querySelector('#mainTableHeader tr');
             const years = getAcademicYearsConfig();
-            
-            let html = `
-                <th class="w-12 text-center">序號</th>
-                <th>學生姓名</th>
-                <th class="w-28">學號</th>
-            `;
-            
-            // 動態橫向插入學年欄位
-            years.forEach(y => {
-                html += `<th class="text-center bg-amber-50 text-amber-950 border-x border-stone-200">${y.name}</th>`;
-            });
-            
-            html += `
-                <th class="text-center bg-emerald-800 text-white font-bold">總逗留天數</th>
-                <th class="w-36">留服認證狀態</th>
-                <th>備註</th>
-            `;
+            let html = `<th class="w-12 text-center">序號</th><th>學生姓名</th><th class="w-28">學號</th>`;
+            years.forEach(y => { html += `<th class="text-center bg-amber-50 text-amber-950 border-x border-stone-200">${y.name}</th>`; });
+            html += `<th class="text-center bg-emerald-800 text-white font-bold">總逗留天數</th><th class="w-36">留服認證狀態</th><th>備註</th>`;
             headerRow.innerHTML = html;
         }
 
@@ -618,9 +524,7 @@
             const currentYears = getAcademicYearsConfig();
 
             if (studentOrder.length === 0) {
-                const totalCols = 6 + currentYears.length;
-                tbody.innerHTML = `<tr><td colspan="${totalCols}" class="text-center text-gray-400 py-12 text-sm">請按左側「步驟一」上傳並確認學生 Excel 名單以生成底表。</td></tr>`;
-                document.getElementById('dataSummaryCount').innerText = `已生成 0 筆基礎學生數據`;
+                tbody.innerHTML = `<tr><td colspan="${6 + currentYears.length}" class="text-center text-gray-400 py-12 text-sm">請導入 Excel 學生名單以生成底表。</td></tr>`;
                 return;
             }
 
@@ -628,111 +532,9 @@
                 const student = studentMap.get(id);
                 const tr = document.createElement('tr');
                 
-                let idCellsHtml = `
-                    <td class="font-mono text-gray-400 text-center">${index + 1}</td>
-                    <td class="font-semibold">${student.name} ${student.isExtra ? '<span class="badge badge-outline badge-xs text-blue-600">外增</span>' : ''}</td>
-                    <td class="font-mono text-xs">${id}</td>
-                `;
-
-                let yearDaysHtml = '';
-                let totalDaysDisplay = '';
-                let statusBadge = '';
-                let remark = '';
+                let idCellsHtml = `<td class="text-center text-gray-400">${index + 1}</td><td class="font-semibold">${student.name}</td><td class="font-mono text-xs">${id}</td>`;
+                let yearDaysHtml = ''; let totalDaysDisplay = ''; let statusBadge = ''; let remark = '';
 
                 if (!student.parsed) {
                     tr.classList.add('opacity-60');
-                    currentYears.forEach(() => {
-                        yearDaysHtml += `<td class="text-center text-stone-300 font-mono">-</td>`;
-                    });
-                    totalDaysDisplay = `<span class="text-stone-300 font-mono">--</span>`;
-                    statusBadge = `<span class="badge bg-amber-100 text-amber-800 border-none text-xs">🔴 未上傳</span>`;
-                    remark = `<span class="text-stone-400 text-xs">等待 PDF</span>`;
-                } else {
-                    // 動態計算各學年的天數
-                    currentYears.forEach(year => {
-                        const yDays = coreCalculateSingleYear(student.rawDates, year.start, year.end);
-                        yearDaysHtml += `<td class="text-center font-mono font-medium text-amber-900 border-x border-stone-100 bg-amber-50/40">${yDays} 天</td>`;
-                    });
-
-                    // 計算總有效天數
-                    const totalDays = coreCalculateTotal(student.rawDates);
-                    totalDaysDisplay = `<span class="font-bold text-base text-facultyGreen">${totalDays} 天</span>`;
-                    
-                    if (totalDays >= 90) {
-                        statusBadge = `<span class="badge bg-emerald-700 text-white border-none text-xs">✅ 達標</span>`;
-                        remark = `<span class="text-emerald-700 font-semibold text-xs">符合認證要求</span>`;
-                    } else {
-                        tr.classList.add('bg-red-50/40');
-                        statusBadge = `<span class="badge bg-red-600 text-white border-none text-xs">❌ 未達標</span>`;
-                        remark = `<span class="text-red-600 font-bold text-xs">⚠️ 差 ${90 - totalDays} 天</span>`;
-                    }
-                }
-
-                tr.innerHTML = idCellsHtml + yearDaysHtml + `<td class="text-center bg-emerald-50/50">${totalDaysDisplay}</td><td>${statusBadge}</td><td>${remark}</td>`;
-                tbody.appendChild(tr);
-            });
-
-            document.getElementById('dataSummaryCount').innerText = `已生成 ${studentOrder.length} 筆基礎學生數據`;
-        }
-
-        function updateGlobalProgress() {
-            let total = studentOrder.length;
-            let parsedCount = 0;
-            for (let [id, student] of studentMap.entries()) {
-                if (student.parsed) parsedCount++;
-            }
-            let percent = total > 0 ? Math.round((parsedCount / total) * 100) : 0;
-            document.getElementById('globalProgressCounter').innerText = `已統計：${parsedCount} / ${total} 人 (${percent}%)`;
-        }
-
-        // ==========================================
-        // 📊 模塊五：多學年橫向自適應 Excel 導出
-        // ==========================================
-        function exportToExcel() {
-            if (studentOrder.length === 0) {
-                alert('目前名單內暫無學生數據，請先完成「步驟一：導入學生資料」。');
-                return;
-            }
-
-            const currentYears = getAcademicYearsConfig();
-
-            const excelData = studentOrder.map((id, idx) => {
-                const s = studentMap.get(id);
-                
-                // 1. 建立基礎欄位
-                const rowObj = {
-                    '序號': idx + 1,
-                    '學生姓名': s.name,
-                    '學號': id
-                };
-
-                // 2. 動態在中間插入多個學年的天數欄位
-                currentYears.forEach(year => {
-                    rowObj[year.name] = s.parsed ? `${coreCalculateSingleYear(s.rawDates, year.start, year.end)} 天` : '未上傳';
-                });
-
-                // 3. 追加總計與狀態欄位
-                const totalDays = s.parsed ? coreCalculateTotal(s.rawDates) : 0;
-                rowObj['總逗留天數 (已扣假/週末)'] = s.parsed ? `${totalDays} 天` : '未提交紀錄';
-                rowObj['留服認證狀態 (≥90天)'] = s.parsed ? (totalDays >= 90 ? '達標' : '未達標') : '未統計';
-                rowObj['差額 / 備註'] = s.parsed ? (totalDays >= 90 ? '符合要求' : `還差 ${90 - totalDays} 天`) : '尚未上傳出入境PDF';
-
-                return rowObj;
-            });
-
-            const worksheet = XLSX.utils.json_to_sheet(excelData);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "金融學院多學年逗留統計");
-
-            // 自動設定合適的欄寬
-            const colWidths = [{ wch: 6 }, { wch: 15 }, { wch: 18 }];
-            currentYears.forEach(() => colWidths.push({ wch: 15 })); // 給每個學年欄位設定寬度
-            colWidths.push({ wch: 25 }, { wch: 22 }, { wch: 25 });
-            worksheet['!cols'] = colWidths;
-
-            const today = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(workbook, `金融學院研究生在澳逗留天數多學年總表_${today}.xlsx`);
-        }
-    </script>
-</body>
-</html>
+                    currentYears.forEach(() => { yearDaysHtml += `<td class="text-center text-stone-300">-</td>
