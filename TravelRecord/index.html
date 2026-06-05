@@ -94,7 +94,7 @@
                 </div>
             </div>
 
-            <button onclick="exportToExcel()" id="btnExport" class="btn bg-facultyGreen hover:bg-emerald-900 text-white w-full shadow border-none" disabled>
+            <button onclick="exportToExcel()" id="btnExport" class="btn bg-facultyGreen hover:bg-emerald-900 text-white w-full shadow border-none">
                 📥 導出最終統計總表 (Excel)
             </button>
 
@@ -507,14 +507,43 @@
             };
         }
 
+      /**
+         * 🧮 核心天數計算邏輯（周末與假期雙重排除版）
+         * 傳入學生的出入境日期清單，自動過濾掉周末和配置的假期
+         */
         function coreCalculate(rawDates) {
             let count = 0;
+            
             rawDates.forEach(d => {
-                if (!exclusionDates.has(d)) count++;
+                // 1. 建立日期物件來檢查星期幾
+                const dateObj = new Date(d);
+                const dayOfWeek = dateObj.getDay(); // 0 是星期日，6 是星期六
+                
+                // 🔴 規則一：如果是週末（星期六或星期日），直接跳過不計入
+                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    return; 
+                }
+                
+                // 🔴 規則二：如果命中了行政人員在左側配置的公眾假期/停課日，也跳過不計入
+                if (exclusionDates.has(d)) {
+                    return; 
+                }
+                
+                // 兩者皆非，才是有效在澳上課/逗留的工作日
+                count++;
             });
+            
             return count;
         }
 
+        // 當行政人員在界面新增或刪除假期時，用來重新計算所有已解析學生天數的函數
+        function reCalculateAllStudentsStayDays() {
+            for (let [id, student] of studentMap.entries()) {
+                if (student.parsed) {
+                    student.days = coreCalculate(student.rawDates);
+                }
+            }
+        }
         function reCalculateAllStudentsStayDays() {
             for (let [id, student] of studentMap.entries()) {
                 if (student.parsed) {
@@ -593,8 +622,14 @@
         // ==========================================
         // 📊 模塊五：Excel 最終結果總表導出
         // ==========================================
+// ==========================================
+        // 📊 模塊五：Excel 最終結果總表導出
+        // ==========================================
         function exportToExcel() {
-            if (studentOrder.length === 0) return;
+            if (studentOrder.length === 0) {
+                alert('目前名單內暫無學生數據，請先完成「步驟一：導入學生資料」再執行導出。');
+                return;
+            }
 
             const excelData = studentOrder.map((id, idx) => {
                 const s = studentMap.get(id);
