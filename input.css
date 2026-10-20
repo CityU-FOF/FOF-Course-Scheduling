@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+[v-cloak]{display:none}
+body {min-width:1050px;}
+.tool{padding:5px 9px;border:1px solid #cbd5e1;border-radius:7px;background:#f8fafc;font-size:12px;white-space:nowrap;}
+button:disabled{opacity:.4;cursor:not-allowed;}
+.overlay{position:fixed;inset:0;background:#0008;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;}
+.panel{background:white;border-radius:16px;padding:26px;width:500px;max-height:90vh;overflow:auto;box-shadow:0 20px 80px #0003;}
+.panel.wide{width:800px}.panel h2{font-size:21px;font-weight:700;color:#004d2c;margin-bottom:12px}.panel label{display:block;font-size:13px;margin:14px 0}.panel input{display:block;border:1px solid #cbd5e1;border-radius:6px;width:100%;padding:8px;margin-top:4px}.panel p{font-size:12px;color:#536374;line-height:1.7}.actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}.actions button,.issue button{padding:7px 14px;border:1px solid #ccd5ce;border-radius:7px;color:#004d2c}.actions button:last-child{background:#004d2c;color:white}.issue{border:1px solid #fecaca;background:#fff7f7;margin:12px 0;padding:12px;border-radius:8px;font-size:13px}
+@media print{
+ @page{size:A4 landscape;margin:0}
+ html,body{width:297mm;min-width:0!important;height:auto!important;background:white!important;overflow:visible!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+ #app{display:block!important;height:auto!important;overflow:visible!important;padding:0!important}
+ #app>*:not(#pdf-render-template){display:none!important}
+ #pdf-render-template{display:block!important}
+ #pdf-render-template>div{break-after:page;page-break-after:always}
+ #pdf-render-template>div:last-child{break-after:auto;page-break-after:auto}
+}

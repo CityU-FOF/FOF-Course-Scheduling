@@ -1,0 +1,18 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const C=require('../scheduler-core.js');
+const block=(id,extra={})=>({id,program:'本科',grade:'大一',className:'A',subject:'公司金融',subjectCode:'BAE305',teacher:'江老師',room:'G2207',locked:false,...extra});
+const item=(id,extra={},where={})=>({day:1,slot:1,block:block(id,extra),...where});
+const slots=Array.from({length:8},(_,idx)=>({num:idx+1,time:'09:00-10:15'}));
+test('legacy JSON normalizes optional fields, preserves all classes',()=>{const d=C.validate({unassignedBlocks:[block('a',{room:undefined})],timetable:[]});assert.equal(d.unassignedBlocks[0].room,'');assert.equal(d.settings.weeks,15);});
+test('invalid/duplicate backups rejected before mutation',()=>{for(const raw of [{unassignedBlocks:{},timetable:[]},{unassignedBlocks:[block('a')],timetable:[item('a')]},{unassignedBlocks:[],timetable:[item('a',{}, {slot:9})]},{unassignedBlocks:[block('a',{teacher:''})],timetable:[]}])assert.throws(()=>C.validate(raw));});
+test('class conflicts do not depend on teacher',()=>assert.deepEqual(C.conflicts(item('a'),item('b',{teacher:'另一老師'})),['班級撞堂','課室撞堂']));
+test('teacher and room conflicts checked independently',()=>{assert.deepEqual(C.conflicts(item('a'),item('b',{className:'B',room:'G2209'})),['教師撞堂']);assert.deepEqual(C.conflicts(item('a'),item('b',{className:'B',teacher:'另一老師'})),['課室撞堂']);});
+test('blank rooms never conflict',()=>assert.deepEqual(C.conflicts(item('a',{room:''}),item('b',{className:'B',teacher:'另一老師',room:''})),[]));
+test('matching titles are not implicit merge permission',()=>assert.deepEqual(C.conflicts(item('a'),item('b',{className:'B'})),['教師撞堂','課室撞堂']));
+test('explicit valid merge counts teacher once, keeps both classes',()=>{const a=item('a',{}, {mergeId:'M'}),b=item('b',{className:'B'}, {mergeId:'M'});assert.deepEqual(C.conflicts(a,b),[]);assert.equal(C.slotLoad([a,b],1,1).sessions,1);assert.equal(C.slotLoad([a,b],1,1).classes,2);const t=C.stats([],[a,b],C.defaults,slots)[0];assert.equal(t.classes.length,2);assert.equal(t.scheduled,1);assert.equal(t.numerator,22.5);assert.equal(t.clockHours,18.75);});
+test('malformed merge across subjects or times rejected',()=>{for(const b of [item('b',{className:'B',subjectCode:'BAE306'},{mergeId:'M'}),item('b',{className:'B'},{mergeId:'M',slot:2})])assert.throws(()=>C.validate({unassignedBlocks:[],timetable:[item('a',{}, {mergeId:'M'}),b]}));});
+test('two 75 minute weekly sessions at 15 weeks are 45 academic hours at 50min',()=>{const t=C.stats([],[item('a'),item('b',{}, {slot:2})],C.defaults,slots)[0];assert.equal(t.numerator,45);assert.equal(t.clockHours,37.5);});
+test('all class groups retained beyond six and include programme/year identity',()=>{const pool=Array.from({length:8},(_,i)=>block(String(i),{className:String(i)}));assert.equal(C.stats(pool,[],C.defaults,slots)[0].classes.length,8);});
+test('pending adds explicit upper bound, configurable academic minutes',()=>{const t=C.stats([block('b')],[item('a')],{weeks:10,academicMinutes:60},slots)[0];assert.equal(t.numerator,12.5);assert.equal(t.denominator,25);});
+test('audit reports all collision pairs across whole faculty',()=>{assert.equal(C.audit([item('a'),item('b',{className:'B'}),item('c',{teacher:'T'})]).length,3);});

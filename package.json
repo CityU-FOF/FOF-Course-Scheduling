@@ -1,0 +1,7 @@
+{
+  "name":"fof-course-scheduling",
+  "private":true,
+  "version":"2.0.0",
+  "scripts":{"test":"node --test tests/core.test.cjs && node tests/integration.cjs"},
+  "devDependencies":{"jsdom":"26.1.0"}
+}
