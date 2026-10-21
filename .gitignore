@@ -3,3 +3,13 @@ node_modules/
 *備份*.json
 backups/
 *.xlsx
+
+# User data imports / exports stay out of the public source repository.
+*.json
+!package.json
+!package-lock.json
+*.csv
+*.ics
+*.sqlite*
+*.db
+exports/
