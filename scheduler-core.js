@@ -112,7 +112,7 @@ function holidayImpacts(data){
 }
 function fullAudit(data){const issues=audit(data.timetable).map(x=>({type:x.types.join('／'),item:x.a,detail:`${x.a.block.subject} ↔ ${x.b.block.subject}（${x.b.block.teacher}）`}));for(const i of data.timetable){const rs=restrictions(data.rules,i.block,i.day,i.slot);if(rs.length)issues.push({type:'排課限制',item:i,detail:rs.map(r=>r.reason||r.target||'全院禁排').join('；')});}for(let day=1;day<=7;day++)for(let slot=1;slot<=8;slot++)for(const r of roomPressure(data,day,slot).filter(r=>r.over))issues.push({type:'課室超容量',item:data.timetable.find(i=>i.day===day&&i.slot===slot&&i.block.room===r.name),detail:`${r.name} 已知人數${r.seats} / ${r.capacity}${r.unknown?'（另有人數未填）':''}`});return issues;}
 function parseCSV(input){const rows=[];let row=[],cell='',quoted=false;input=input.replace(/^\uFEFF/,'');for(let i=0;i<input.length;i++){const c=input[i];if(c==='"'){if(quoted&&input[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}else if(!quoted&&(c===','||c==='\n'||c==='\r')){row.push(cell);cell='';if(c!==','){if(c==='\r'&&input[i+1]==='\n')i++;if(row.some(x=>x.trim()))rows.push(row);row=[];}}else cell+=c;}if(quoted)throw Error('CSV引號未關閉');row.push(cell);if(row.some(x=>x.trim()))rows.push(row);return rows;}
-function parseHolidayCSV(input){const rows=parseCSV(input);if(!rows.length)throw Error('CSV沒有資料');const head=rows.shift().map(s=>s.trim().toLowerCase());const col=(name,r)=>r[head.indexOf(name)]?.trim()||'';if(!head.includes('date')||!head.includes('name'))throw Error('CSV須包含 date,name 欄位');return rows.map((r,n)=>({id:'csv-'+n+'-'+col('date',r),date:col('date',r),endDate:col('end_date',r)||col('date',r),name:col('name',r),start:col('start',r)?clock(col('start',r)):0,end:col('end',r)?clock(col('end',r)):1440,enabled:!['false','0'].includes(col('enabled',r).toLowerCase()),source:'CSV匯入'}));}
+function parseHolidayCSV(input,csv){const parsed=csv?csv.parse(input.replace(/^\uFEFF/,''),{skipEmptyLines:'greedy',dynamicTyping:false}):null;if(parsed?.errors.length)throw Error('CSV格式錯誤：'+parsed.errors[0].message);const rows=parsed?parsed.data:parseCSV(input);if(!rows.length)throw Error('CSV沒有資料');const head=rows.shift().map(s=>s.trim().toLowerCase());if(new Set(head).size!==head.length)throw Error('CSV欄名不能重複');if(!rows.length)throw Error('CSV沒有假期資料');if(rows.some(r=>r.length!==head.length))throw Error('CSV每列欄位數須與標題一致');const col=(name,r)=>r[head.indexOf(name)]?.trim()||'';if(!head.includes('date')||!head.includes('name'))throw Error('CSV須包含 date,name 欄位');return rows.map((r,n)=>({id:'csv-'+n+'-'+col('date',r),date:col('date',r),endDate:col('end_date',r)||col('date',r),name:col('name',r),start:col('start',r)?clock(col('start',r)):0,end:col('end',r)?clock(col('end',r)):1440,enabled:!['false','0'].includes(col('enabled',r).toLowerCase()),source:'CSV匯入'}));}
 function parseICS(input){
  const lines=input.replace(/\r?\n[ \t]/g,'').split(/\r?\n/);let event=null;const events=[];
  for(const line of lines){if(line==='BEGIN:VEVENT'){event=[];}else if(line==='END:VEVENT'){if(event)events.push(event);event=null;}else if(event)event.push(line);}
@@ -133,5 +133,23 @@ function parseICS(input){
  }
  return result;
 }
-return {defaults,slots,validate,conflicts,audit,fullAudit,slotLoad,roomPressure,pressure,stats,placement,restrictions,holidayImpacts,parseHolidayCSV,parseICS,sameSubject,cls,session,minutes,clock,dateISO,weekday,round};
+// Soft preferences inspired by Timefold's school-timetabling examples; no solver code copied.
+function suggestions(data,blockId,mode='balanced',weekends=false){
+ const old=data.timetable.find(i=>i.block.id===blockId),b=old?old.block:data.unassignedBlocks.find(b=>b.id===blockId);if(!b||b.locked)return [];
+ const teacherItems=data.timetable.filter(i=>i.block.id!==blockId&&i.block.teacher===b.teacher);
+ const teacherDays=new Set(teacherItems.map(i=>i.day)),out=[];
+ for(let day=1;day<=(weekends?7:5);day++)for(let slot=1;slot<=8;slot++){
+  const plan=placement(data,blockId,day,slot);if(!plan.ok||plan.noChange)continue;
+  const sameDay=teacherItems.filter(i=>i.day===day),positions=[...new Set([...sameDay.map(i=>i.slot),slot])].sort((a,b)=>a-b);
+  const gaps=positions.length?positions.at(-1)-positions[0]+1-positions.length:0;
+  const newDay=teacherDays.size&&!teacherDays.has(day)?1:0;
+  const load=slotLoad(data.timetable.filter(i=>i.block.id!==blockId),day,slot).sessions;
+  const repeated=data.timetable.some(i=>i.block.id!==blockId&&i.day===day&&cls(i.block)===cls(b)&&sameSubject(i.block,b));
+  const score=mode==='compact'?newDay*25+gaps*12+load*2+(repeated?6:0):load*10+newDay*3+gaps*2+(repeated?8:0);
+  const reasons=[`該時段原有${load}個課堂`];if(sameDay.length)reasons.push(gaps?`教師當日${gaps}個空堂節次`:'教師當日課節較集中');if(plan.needsMerge)reasons.push('須另確認合班');if(!b.room||!data.rooms.some(r=>r.name===b.room)||b.headcount===null)reasons.push('容量資料未齊，須核實');
+  out.push({day,slot,score:score-(plan.needsMerge?4:0),needsMerge:plan.needsMerge,reasons});
+ }
+ return out.sort((a,b)=>a.score-b.score||a.day-b.day||a.slot-b.slot).slice(0,8);
+}
+return {defaults,slots,validate,conflicts,audit,fullAudit,slotLoad,roomPressure,pressure,stats,placement,suggestions,restrictions,holidayImpacts,parseHolidayCSV,parseICS,sameSubject,cls,session,minutes,clock,dateISO,weekday,round};
 });

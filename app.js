@@ -1,6 +1,7 @@
 /* Offline interface. All user data stays in this browser unless explicitly exported. */
 const {createApp,ref,reactive,computed,watch,nextTick}=Vue;
 const FOFApp={setup(){
+ const V=FOFVisual;const pointerReady=ref(false),showSuggestions=ref(false),suggestionMode=ref('balanced'),suggestWeekends=ref(false);
  const C=FOFCore,storageKey='fof_scheduling_v3',message=ref(''),notice=ref('');
  let initial,revision=0,stale=false;
  try{const saved=localStorage.getItem(storageKey);const old=localStorage.getItem('fof_scheduling_v2');const raw=saved?JSON.parse(saved):old?JSON.parse(old):{unassignedBlocks:JSON.parse(localStorage.getItem('fai_unassignedBlocks')||'[]'),timetable:JSON.parse(localStorage.getItem('fai_timetable')||'[]')};initial=C.validate(raw);revision=saved?raw.revision||0:0;}catch(e){initial=C.validate({unassignedBlocks:[],timetable:[]});message.value='未能讀取本機資料：'+e.message+'。原資料未覆寫，請匯入有效備份。';}
@@ -26,6 +27,8 @@ const FOFApp={setup(){
  const pendingImpacts=computed(()=>impacts.value.filter(i=>i.status==='pending').length);
  const knownCount=computed(()=>allBlocks.value.filter(b=>b.headcount!==null).length);
  const selectedBlock=computed(()=>allBlocks.value.find(b=>b.id===selected.value));
+ const proposed=computed(()=>selected.value?C.suggestions(data,selected.value,suggestionMode.value,suggestWeekends.value):[]);
+ const programStyle=V.style,programInfo=V.program;
  const boardTitle=computed(()=>view.value==='teacher'?(teacher.value||'選擇教師'):view.value==='room'?(roomView.value||'選擇課室'):(classes.value.find(c=>c.key===classKey.value)?.label||'建立課程後開始排課'));
  function notify(s){notice.value=s;}
  function apply(raw){Object.assign(data,C.validate(raw));selected.value='';}
@@ -81,15 +84,17 @@ const FOFApp={setup(){
  function deleteRule(id){if(confirm('移除此排課限制？'))mutate(d=>d.rules=d.rules.filter(r=>r.id!==id));}
  const kindLabel=k=>({teacher:'教師不可用',global:'全院禁排',program:'課程禁排',class:'班級禁排',room:'教室不可用'}[k]);
  function targetLabel(r){return r.kind==='global'?'全院所有課節':r.kind==='class'?classes.value.find(c=>c.key===r.target)?.label||JSON.parse(r.target).join(' · '):r.target;}
- function load(day,slot){return C.pressure(data,day,slot);}
+ const pressureMap=computed(()=>{const m=new Map();for(let day=1;day<=7;day++)for(let slot=1;slot<=8;slot++)m.set(day+':'+slot,C.pressure(data,day,slot));return m;});
+ function load(day,slot){return pressureMap.value.get(day+':'+slot);}
+ function loadAssessment(day,slot){return V.assessment(load(day,slot),data.rooms.length,data.settings.capacity);}
  const selectedPressure=computed(()=>load(pressureDay.value,pressureSlot.value));
- function heat(day,slot){const p=load(day,slot);if(p.overRooms||p.conflictRooms)return 'danger';if(!data.rooms.length)return p.sessions>=data.settings.capacity?'danger':p.sessions?'unknown':'';if(p.sessions>p.availableRooms)return 'danger';if(p.missingRooms||p.unregistered||p.unknownClasses)return 'unknown';if(p.availableRooms&&p.occupiedRooms/p.availableRooms>=.8)return 'warn';return p.sessions?'healthy':'';}
+ function heat(day,slot){return loadAssessment(day,slot).tone;}
  function selectPressure(day,slot){pressureDay.value=day;pressureSlot.value=slot;}
  function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
- function exportData(){download('FOF排課v3.1_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({...JSON.parse(snapshot()),exportedAt:new Date().toISOString()},null,2),'application/json');}
+ function exportData(){download('FOF排課v3.2_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({...JSON.parse(snapshot()),exportedAt:new Date().toISOString()},null,2),'application/json');}
  async function importData(event){const file=event.target.files[0];if(!file)return;try{if(file.size>10*1024*1024)throw Error('檔案超過10MB');const incoming=C.validate(JSON.parse(await file.text()));if(!confirm(`匯入${incoming.timetable.length}個已排及${incoming.unassignedBlocks.length}個待排課節，將取代目前資料。繼續？`))return;if(mutate(d=>Object.assign(d,incoming)))notify('已匯入；請查看檢查清單及學期日期');}catch(e){notify('未能匯入：'+e.message);}finally{event.target.value='';}}
  function builtinHolidays(){const year=Number(holidayYear.value);holidayPreview.value=FOFHolidayData[year].map(([date,name])=>({id:'MO-'+year+'-'+date,date:year+'-'+date,endDate:year+'-'+date,name,start:0,end:1440,enabled:true,source:`澳門政府公眾假期${year}（2026-10-21核對）`}));modal.value='holidayPreview';}
- async function importHolidays(event){const file=event.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw Error('檔案超過2MB');const input=await file.text();const rows=file.name.toLowerCase().endsWith('.ics')?C.parseICS(input):C.parseHolidayCSV(input);holidayPreview.value=C.validate({...JSON.parse(snapshot()),holidays:rows}).holidays;modal.value='holidayPreview';}catch(e){notify('假期未匯入：'+e.message);}finally{event.target.value='';}}
+ async function importHolidays(event){const file=event.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw Error('檔案超過2MB');const input=await file.text();const rows=file.name.toLowerCase().endsWith('.ics')?C.parseICS(input):C.parseHolidayCSV(input,Papa);holidayPreview.value=C.validate({...JSON.parse(snapshot()),holidays:rows}).holidays;modal.value='holidayPreview';}catch(e){notify('假期未匯入：'+e.message);}finally{event.target.value='';}}
  function applyHolidays(){if(mutate(d=>{for(const h of holidayPreview.value){const idx=d.holidays.findIndex(old=>old.date===h.date&&(old.endDate||old.date)===(h.endDate||h.date)&&old.name===h.name&&old.start===h.start&&old.end===h.end);if(idx>=0)d.holidays[idx]={...h,id:d.holidays[idx].id};else d.holidays.push({...h,id:'H_'+uid()});}})){modal.value='';notify('假期已加入，重複日期／名稱／時段不重複新增');}}
  function openHoliday(h){draft.value=h?{...h,endDate:h.endDate||h.date,startText:formatMinute(h.start),endText:formatMinute(h.end)}:{id:'H_'+uid(),date:'',endDate:'',name:'',enabled:true,startText:'00:00',endText:'24:00',source:'校曆／手動輸入'};modal.value='holiday';}
  function saveHoliday(){try{const f=draft.value,h={id:f.id,date:f.date,endDate:f.endDate||f.date,name:f.name,enabled:f.enabled,start:C.clock(f.startText),end:C.clock(f.endText),source:f.source};if(mutate(d=>{const idx=d.holidays.findIndex(h=>h.id===f.id);if(idx>=0)d.holidays[idx]=h;else d.holidays.push(h);}))modal.value='';}catch(e){notify(e.message);}}
@@ -115,7 +120,7 @@ const FOFApp={setup(){
  }
  function openIssues(){modal.value='issues';}
  function gotoIssue(row){choose(row.item.block);tab.value='board';modal.value='';}
- return {largeText,toggleLargeText,C,data,tab,view,nav,days,programs,allPrograms,classes,teachers,selected,selectedBlock,search,poolProgram,filteredPool,classKey,teacher,roomView,modal,draft,history,future,message,notice,stats,issues,impacts,filteredImpacts,pendingImpacts,knownCount,allBlocks,cohorts,boardTitle,holidayYear,holidayPreview,impactStatus,pressureDay,pressureSlot,selectedPressure,printKeys,printOptions,printPages,
+ return {V,pointerReady,showSuggestions,suggestionMode,suggestWeekends,proposed,programStyle,programInfo,loadAssessment,largeText,toggleLargeText,C,data,tab,view,nav,days,programs,allPrograms,classes,teachers,selected,selectedBlock,search,poolProgram,filteredPool,classKey,teacher,roomView,modal,draft,history,future,message,notice,stats,issues,impacts,filteredImpacts,pendingImpacts,knownCount,allBlocks,cohorts,boardTitle,holidayYear,holidayPreview,impactStatus,pressureDay,pressureSlot,selectedPressure,printKeys,printOptions,printPages,
  undo,redo,choose,cellItems,cellLimits,place,drop,drag,returnPool,poolDrop,removePool,lock,openBatch,addBatchRow,generate,edit,saveBlock,openSettings,saveSettings,openRoom,saveRoom,deleteRoom,openRule,ruleKindChange,toggleRuleCell,toggleRuleDay,toggleRuleSlot,saveRule,deleteRule,kindLabel,targetLabel,load,heat,selectPressure,exportData,importData,builtinHolidays,importHolidays,applyHolidays,openHoliday,saveHoliday,toggleHoliday,deleteHoliday,openFollowup,saveFollowup,statusLabel,holidayTemplate,showTime,formatMinute,openPrint,print,printedItems,exportExcel,openIssues,gotoIssue,notify};
-}};
+},mounted(){this._pointerController=FOFPointerDnD.install({root:document.getElementById('app'),getBlock:id=>this.allBlocks.find(b=>b.id===id),onPlace:(id,day,slot)=>this.place(id,day,slot),onPool:id=>this.returnPool(id)});this.pointerReady=!!this._pointerController;},beforeUnmount(){this._pointerController?.destroy();}};
 createApp(FOFApp).mount('#app');
