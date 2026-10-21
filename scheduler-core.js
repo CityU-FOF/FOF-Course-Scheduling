@@ -17,7 +17,7 @@ const nextDate=s=>new Date(new Date(s+'T00:00:00Z').getTime()+86400000).toISOStr
 const unique=(arr,name)=>{const ids=new Set();for(const a of arr){if(ids.has(a.id))throw Error(name+' ID重複');ids.add(a.id);}};
 function validate(raw){
  if(!raw||!Array.isArray(raw.unassignedBlocks)||!Array.isArray(raw.timetable))throw Error('備份必須包含待排課池及課表陣列');
- if(raw.schemaVersion!==undefined&&![2,3].includes(raw.schemaVersion))throw Error('不支援此備份版本');
+ if(raw.schemaVersion!==undefined&&![2,3,4].includes(raw.schemaVersion))throw Error('不支援此備份版本');
  if(raw.unassignedBlocks.length+raw.timetable.length>10000)throw Error('課節上限為10000');
  const ids=new Set();
  function block(b){
@@ -51,16 +51,18 @@ function validate(raw){
  });unique(rules,'限制');
  const holidays=(raw.holidays||[]).map(h=>{
   if(!h||!text(h.id)||!dateISO(h.date)||!text(h.name))throw Error('假期日期或名稱不正確');
+  const endDate=h.endDate===undefined?h.date:h.endDate;
+  if(!dateISO(endDate)||endDate<h.date||(new Date(endDate)-new Date(h.date))/86400000>366)throw Error('假期結束日期須不早於開始日期，最長367個曆日');
   const start=h.start===undefined?0:h.start,end=h.end===undefined?1440:h.end;
   if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end>1440||start>=end)throw Error('假期時段不正確');
   if(h.enabled!==undefined&&typeof h.enabled!=='boolean')throw Error('假期啟用狀態不正確');
-  return {id:text(h.id),date:h.date,name:text(h.name),start,end,enabled:h.enabled!==false,source:text(h.source)};
+  return {id:text(h.id),date:h.date,endDate,name:text(h.name),start,end,enabled:h.enabled!==false,source:text(h.source)};
  });unique(holidays,'假期');
  if(holidays.length>2000||rules.length>1000||rooms.length>1000)throw Error('設定數量過多');
  const followups=Object.create(null);for(const [key,v] of Object.entries(raw.followups||{})){if(!v||!['pending','planned','exempt'].includes(v.status)||typeof v.note!=='string')throw Error('假期跟進資料不正確');followups[key]={status:v.status,note:v.note.slice(0,2000)};}
  const groups=new Map();timetable.filter(i=>i.mergeId).forEach(i=>{if(!groups.has(i.mergeId))groups.set(i.mergeId,[]);groups.get(i.mergeId).push(i);});
  for(const group of groups.values())if(group.some(i=>i.day!==group[0].day||i.slot!==group[0].slot||i.block.teacher!==group[0].block.teacher||!sameSubject(i.block,group[0].block)||i.block.room!==group[0].block.room)||new Set(group.map(i=>cls(i.block))).size!==group.length)throw Error('合班必須同時段、同教師、同科目、同課室及不同班級');
- return {schemaVersion:3,unassignedBlocks,timetable,settings,rooms,rules,holidays,followups};
+ return {schemaVersion:4,unassignedBlocks,timetable,settings,rooms,rules,holidays,followups};
 }
 function matchesRule(rule,b){return rule.kind==='global'||rule.kind==='teacher'&&rule.target===b.teacher||rule.kind==='room'&&rule.target===b.room||rule.kind==='program'&&rule.target===b.program||rule.kind==='class'&&rule.target===cls(b);}
 const restrictions=(rules,b,day,slot)=>rules.filter(r=>matchesRule(r,b)&&r.cells.includes(day+':'+slot));
@@ -94,10 +96,23 @@ function placement(data,blockId,day,slot){
  return {ok:true,needsMerge:merge.length>0,mergeIds:merge.map(i=>i.block.id)};
 }
 function stats(pool,timetable,settings,timeSlots=slots){const map=new Map();const get=t=>{if(!map.has(t))map.set(t,{name:t,classes:new Set(),scheduled:0,pending:0,minutes:0,physical:new Set()});return map.get(t);};const label=b=>`${b.program} ${b.grade}${b.className} ${b.subjectCode} ${b.subject}`;pool.forEach(b=>{const s=get(b.teacher);s.classes.add(label(b));s.pending++;});timetable.forEach(i=>{const s=get(i.block.teacher);s.classes.add(label(i.block));s.scheduled++;s.minutes+=minutes(timeSlots.find(s=>s.num===i.slot));s.physical.add(session(i));});return [...map.values()].map(s=>({name:s.name,classes:[...s.classes].sort(),scheduled:s.scheduled,pending:s.pending,physical:s.physical.size,clockHours:round(s.minutes*settings.weeks/60),numerator:round(s.minutes*settings.weeks/settings.academicMinutes),denominator:round((s.minutes+s.pending*75)*settings.weeks/settings.academicMinutes)})).sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant'));}
-function holidayImpacts(data){if(!data.settings.startDate||!data.settings.endDate)return [];const map=new Map();for(const h of data.holidays.filter(h=>h.enabled&&h.date>=data.settings.startDate&&h.date<=data.settings.endDate)){for(const i of data.timetable){const [start,end]=slotRange(i.slot);if(i.day!==weekday(h.date)||start>=h.end||end<=h.start)continue;const key=h.date+'|'+i.block.id;if(!map.has(key))map.set(key,{key,date:h.date,item:i,names:[],status:data.followups[key]?.status||'pending',note:data.followups[key]?.note||''});const row=map.get(key);if(!row.names.includes(h.name))row.names.push(h.name);}}return [...map.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.item.slot-b.item.slot||a.item.block.className.localeCompare(b.item.block.className));}
+function holidayImpacts(data){
+ if(!data.settings.startDate||!data.settings.endDate)return [];
+ const map=new Map();
+ for(const h of data.holidays.filter(h=>h.enabled)){
+  const from=h.date>data.settings.startDate?h.date:data.settings.startDate;
+  const endDate=h.endDate||h.date,to=endDate<data.settings.endDate?endDate:data.settings.endDate;
+  for(let date=from;date<=to;date=nextDate(date))for(const i of data.timetable){
+   const [start,end]=slotRange(i.slot);if(i.day!==weekday(date)||start>=h.end||end<=h.start)continue;
+   const key=date+'|'+i.block.id;if(!map.has(key))map.set(key,{key,date,item:i,names:[],status:data.followups[key]?.status||'pending',note:data.followups[key]?.note||''});
+   const row=map.get(key);if(!row.names.includes(h.name))row.names.push(h.name);
+  }
+ }
+ return [...map.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.item.slot-b.item.slot||a.item.block.className.localeCompare(b.item.block.className));
+}
 function fullAudit(data){const issues=audit(data.timetable).map(x=>({type:x.types.join('／'),item:x.a,detail:`${x.a.block.subject} ↔ ${x.b.block.subject}（${x.b.block.teacher}）`}));for(const i of data.timetable){const rs=restrictions(data.rules,i.block,i.day,i.slot);if(rs.length)issues.push({type:'排課限制',item:i,detail:rs.map(r=>r.reason||r.target||'全院禁排').join('；')});}for(let day=1;day<=7;day++)for(let slot=1;slot<=8;slot++)for(const r of roomPressure(data,day,slot).filter(r=>r.over))issues.push({type:'課室超容量',item:data.timetable.find(i=>i.day===day&&i.slot===slot&&i.block.room===r.name),detail:`${r.name} 已知人數${r.seats} / ${r.capacity}${r.unknown?'（另有人數未填）':''}`});return issues;}
 function parseCSV(input){const rows=[];let row=[],cell='',quoted=false;input=input.replace(/^\uFEFF/,'');for(let i=0;i<input.length;i++){const c=input[i];if(c==='"'){if(quoted&&input[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}else if(!quoted&&(c===','||c==='\n'||c==='\r')){row.push(cell);cell='';if(c!==','){if(c==='\r'&&input[i+1]==='\n')i++;if(row.some(x=>x.trim()))rows.push(row);row=[];}}else cell+=c;}if(quoted)throw Error('CSV引號未關閉');row.push(cell);if(row.some(x=>x.trim()))rows.push(row);return rows;}
-function parseHolidayCSV(input){const rows=parseCSV(input);if(!rows.length)throw Error('CSV沒有資料');const head=rows.shift().map(s=>s.trim().toLowerCase());const col=(name,r)=>r[head.indexOf(name)]?.trim()||'';if(!head.includes('date')||!head.includes('name'))throw Error('CSV須包含 date,name 欄位');return rows.map((r,n)=>({id:'csv-'+n+'-'+col('date',r),date:col('date',r),name:col('name',r),start:col('start',r)?clock(col('start',r)):0,end:col('end',r)?clock(col('end',r)):1440,enabled:!['false','0'].includes(col('enabled',r).toLowerCase()),source:'CSV匯入'}));}
+function parseHolidayCSV(input){const rows=parseCSV(input);if(!rows.length)throw Error('CSV沒有資料');const head=rows.shift().map(s=>s.trim().toLowerCase());const col=(name,r)=>r[head.indexOf(name)]?.trim()||'';if(!head.includes('date')||!head.includes('name'))throw Error('CSV須包含 date,name 欄位');return rows.map((r,n)=>({id:'csv-'+n+'-'+col('date',r),date:col('date',r),endDate:col('end_date',r)||col('date',r),name:col('name',r),start:col('start',r)?clock(col('start',r)):0,end:col('end',r)?clock(col('end',r)):1440,enabled:!['false','0'].includes(col('enabled',r).toLowerCase()),source:'CSV匯入'}));}
 function parseICS(input){
  const lines=input.replace(/\r?\n[ \t]/g,'').split(/\r?\n/);let event=null;const events=[];
  for(const line of lines){if(line==='BEGIN:VEVENT'){event=[];}else if(line==='END:VEVENT'){if(event)events.push(event);event=null;}else if(event)event.push(line);}
