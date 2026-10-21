@@ -17,7 +17,7 @@ test('all class groups retained beyond six and include programme/year identity',
 test('pending adds explicit upper bound, configurable academic minutes',()=>{const t=C.stats([block('b')],[item('a')],{weeks:10,academicMinutes:60},slots)[0];assert.equal(t.numerator,12.5);assert.equal(t.denominator,25);});
 test('audit reports all collision pairs across whole faculty',()=>{assert.equal(C.audit([item('a'),item('b',{className:'B'}),item('c',{teacher:'T'})]).length,3);});
 const state=extra=>C.validate({unassignedBlocks:[],timetable:[],...extra});
-test('v2 upgrades to v3.1 backup schema with no invented room capacity or class size',()=>{const d=state({schemaVersion:2,unassignedBlocks:[block('a')]});assert.equal(d.schemaVersion,4);assert.deepEqual(d.rooms,[]);assert.equal(d.unassignedBlocks[0].headcount,null);});
+test('v2 upgrades to v3.1 backup schema with no invented room capacity or class size',()=>{const d=state({schemaVersion:2,unassignedBlocks:[block('a')]});assert.equal(d.schemaVersion,5);assert.deepEqual(d.rooms,[]);assert.equal(d.unassignedBlocks[0].headcount,null);});
 test('room names canonicalized and duplicate room definitions rejected',()=>{assert.equal(state({rooms:[{name:'g2207',capacity:70}]}).rooms[0].name,'G2207');assert.throws(()=>state({rooms:[{name:'g2207',capacity:70},{name:'G2207',capacity:80}]}));});
 test('teacher restriction blocks placement while unrelated teacher can place',()=>{const d=state({unassignedBlocks:[block('a')],rules:[{id:'r',kind:'teacher',target:'江老師',cells:['1:1'],reason:'外出'}]});assert.equal(C.placement(d,'a',1,1).ok,false);assert.match(C.placement(d,'a',1,1).message,/外出/);assert.equal(C.placement(d,'a',1,2).ok,true);assert.equal(C.restrictions(d.rules,block('b',{teacher:'T'}),1,1).length,0);});
 test('global, programme, class and room restrictions have precise scope',()=>{for(const [kind,target] of [['global',''],['program','本科'],['class',C.cls(block('a'))],['room','G2207']]){const rules=[{kind,target,cells:['2:4']}];assert.equal(C.restrictions(rules,block('a'),2,4).length,1);assert.equal(C.restrictions(rules,block('a'),2,3).length,0);}});
@@ -42,3 +42,34 @@ test('suggestions exclude teacher exclusions, class collision and weekends by de
 test('suggestions reject all known overcapacity and respect locked blocks',()=>{const d=state({rooms:[{name:'G2207',capacity:20}],unassignedBlocks:[block('a',{headcount:30})]});assert.deepEqual(C.suggestions(d,'a'),[]);d.rooms[0].capacity=40;d.unassignedBlocks[0].locked=true;assert.deepEqual(C.suggestions(d,'a'),[]);});
 test('compact suggestion preference favours teacher adjacent slot without changing data',()=>{const d=state({unassignedBlocks:[block('a',{className:'B'})],timetable:[item('b',{subject:'另一科',subjectCode:'BAE300'}, {day:3,slot:4})]});const before=JSON.stringify(d),out=C.suggestions(d,'a','compact');assert.equal(out[0].day,3);assert.ok([3,5].includes(out[0].slot));assert.equal(JSON.stringify(d),before);});
 test('fully blocked weekdays can be supplemented by optional weekend candidates',()=>{const cells=[];for(let d=1;d<=5;d++)for(let s=1;s<=8;s++)cells.push(d+':'+s);const d=state({unassignedBlocks:[block('a')],rules:[{id:'r',kind:'global',target:'',cells,reason:'禁排'}]});assert.deepEqual(C.suggestions(d,'a'),[]);assert.ok(C.suggestions(d,'a','balanced',true).every(x=>x.day>=6));});
+
+test('schema 5 migrates old metadata conservatively and rejects malformed fields',()=>{
+ const b=state({schemaVersion:4,unassignedBlocks:[block('a')]}).unassignedBlocks[0];assert.equal(b.assessment,'未設定');assert.equal(b.credits,3);assert.equal(b.courseType,'必修');assert.equal(b.faculty,'金融學院');
+ for(const extra of [{assessment:'其他'},{credits:-1},{credits:null},{credits:''},{faculty:' '},{courseType:'自選'}])assert.throws(()=>state({unassignedBlocks:[block('x',extra)]}));
+ const d=state({unassignedBlocks:[block('r',{assessment:'閉卷考試',faculty:'通識教育部',credits:2,courseType:'選修'})]});assert.deepEqual(C.validate(JSON.parse(JSON.stringify(d))),d);
+});
+test('assessment determines period, weighted workload and final week holidays',()=>{
+ const settings={...C.defaults,startDate:'2026-08-24',endDate:'2026-12-04'};
+ const exam=block('e',{assessment:'開卷考試'}),report=block('r',{assessment:'報告/論文',className:'B'});
+ assert.deepEqual(C.teachingPeriod(exam,settings),{start:'2026-08-24',end:'2026-11-27',weeks:14});assert.equal(C.teachingPeriod(report,settings).end,'2026-12-04');assert.equal(C.teachingWeeks({...exam,assessment:'閉卷考試'},settings),14);
+ const t=C.stats([],[{day:1,slot:1,block:exam},{day:1,slot:2,block:report}],settings)[0];assert.equal(t.numerator,43.5);assert.equal(t.clockHours,36.25);
+ assert.equal(C.stats([exam],[],settings)[0].denominator,21);
+ const d=state({settings,timetable:[{day:1,slot:1,block:exam},{day:1,slot:2,block:report}],holidays:[{id:'h',date:'2026-11-30',name:'停課'}]});assert.deepEqual(C.holidayImpacts(d).map(r=>r.item.block.id),['r']);
+ assert.equal(C.teachingWeeks(exam,{...settings,weeks:10}),10);
+});
+test('external lessons block class and room clashes but contribute no faculty pressure or credit',()=>{
+ const ext=block('x',{faculty:'通識教育部',teacher:'外院教師',assessment:'報告/論文',headcount:100});
+ const d=state({rooms:[{name:'G2207',capacity:20}],unassignedBlocks:[ext,block('f',{teacher:'本院教師',headcount:10})]});
+ assert.equal(C.placement(d,'x',1,1).ok,true);d.unassignedBlocks=d.unassignedBlocks.filter(b=>b.id!=='x');d.timetable.push({day:1,slot:1,block:ext});
+ assert.equal(C.placement(d,'f',1,1).ok,false);assert.equal(C.pressure(d,1,1).sessions,0);assert.equal(C.pressure(d,1,1).overRooms,0);assert.equal(C.pressure(d,1,1).unknownClasses,0);assert.equal(C.roomPressure(d,1,1)[0].seats,0);
+ const stats=C.stats(d.unassignedBlocks,d.timetable,d.settings);assert.equal(stats.length,1);assert.equal(stats[0].name,'本院教師');assert.equal(stats[0].numerator,0);
+});
+test('Excel combines exact day/time patterns without inventing Cartesian combinations',()=>{
+ const settings={...C.defaults,startDate:'2026-08-24',endDate:'2026-12-04'},b=block('a',{assessment:'閉卷考試',credits:3,courseType:'選修'});
+ const make=(id,day,slot,extra={})=>({day,slot,block:{...b,id,...extra}});
+ let d=state({settings,timetable:[make('a',1,1),make('b',1,2)]}),rows=C.scheduleRows(d);
+ assert.equal(rows.length,1);assert.deepEqual(Object.keys(rows[0]),['科目編號','科目名','學分','必修/選修','班級','星期','時間','課室','上課期間']);assert.equal(rows[0]['星期'],'星期一');assert.equal(rows[0]['時間'],'09:00-10:15; 10:30-11:45');assert.equal(rows[0]['上課期間'],'2026.08.24-2026.11.27');
+ d=state({settings,timetable:[make('a',1,5),make('b',3,5)]});rows=C.scheduleRows(d);assert.equal(rows.length,1);assert.equal(rows[0]['星期'],'星期一、星期三');assert.equal(rows[0]['時間'],'15:00-16:15');
+ d=state({settings,timetable:[make('a',1,1),make('b',1,2),make('c',3,1)]});assert.equal(C.scheduleRows(d).length,2);
+ d=state({settings,timetable:[make('a',1,1),make('b',1,2,{room:'G2209'}),make('c',1,3,{faculty:'通識教育部',assessment:'報告/論文'})]});rows=C.scheduleRows(d);assert.equal(rows.length,3);assert.ok(rows.some(r=>r['上課期間']==='2026.08.24-2026.12.04'));assert.equal(rows[0]['學分'],3);
+});

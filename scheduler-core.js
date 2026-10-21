@@ -17,7 +17,7 @@ const nextDate=s=>new Date(new Date(s+'T00:00:00Z').getTime()+86400000).toISOStr
 const unique=(arr,name)=>{const ids=new Set();for(const a of arr){if(ids.has(a.id))throw Error(name+' ID重複');ids.add(a.id);}};
 function validate(raw){
  if(!raw||!Array.isArray(raw.unassignedBlocks)||!Array.isArray(raw.timetable))throw Error('備份必須包含待排課池及課表陣列');
- if(raw.schemaVersion!==undefined&&![2,3,4].includes(raw.schemaVersion))throw Error('不支援此備份版本');
+ if(raw.schemaVersion!==undefined&&![2,3,4,5].includes(raw.schemaVersion))throw Error('不支援此備份版本');
  if(raw.unassignedBlocks.length+raw.timetable.length>10000)throw Error('課節上限為10000');
  const ids=new Set();
  function block(b){
@@ -27,7 +27,12 @@ function validate(raw){
   if(b.locked!==undefined&&typeof b.locked!=='boolean')throw Error('鎖定狀態格式不正確');
   const headcount=b.headcount===undefined||b.headcount===null||b.headcount===''?null:Number(b.headcount);
   if(headcount!==null&&(!Number.isInteger(headcount)||headcount<1||headcount>10000))throw Error('班級人數須為1–10000，或留空');
-  return {id:b.id,program:text(b.program),grade:text(b.grade),className:text(b.className),subject:text(b.subject),subjectCode:text(b.subjectCode).toUpperCase(),teacher:text(b.teacher),room:text(b.room).toUpperCase(),locked:!!b.locked,headcount};
+  const assessment=b.assessment===undefined?'未設定':b.assessment;
+  const courseType=b.courseType===undefined?'必修':b.courseType;
+  const faculty=b.faculty===undefined?'金融學院':text(b.faculty);
+  const credits=b.credits===undefined?3:Number(b.credits);
+  if(!['未設定','開卷考試','閉卷考試','報告/論文'].includes(assessment)||!['必修','選修'].includes(courseType)||!faculty||faculty.length>100||b.credits===''||b.credits===null||b.credits!==undefined&&!['number','string'].includes(typeof b.credits)||!Number.isFinite(credits)||credits<0||credits>30)throw Error('考核形式、必修／選修、開課學院或學分不正確');
+  return {assessment,courseType,faculty,credits,id:b.id,program:text(b.program),grade:text(b.grade),className:text(b.className),subject:text(b.subject),subjectCode:text(b.subjectCode).toUpperCase(),teacher:text(b.teacher),room:text(b.room).toUpperCase(),locked:!!b.locked,headcount};
  }
  const unassignedBlocks=raw.unassignedBlocks.map(block);
  const timetable=raw.timetable.map(i=>{
@@ -62,22 +67,43 @@ function validate(raw){
  const followups=Object.create(null);for(const [key,v] of Object.entries(raw.followups||{})){if(!v||!['pending','planned','exempt'].includes(v.status)||typeof v.note!=='string')throw Error('假期跟進資料不正確');followups[key]={status:v.status,note:v.note.slice(0,2000)};}
  const groups=new Map();timetable.filter(i=>i.mergeId).forEach(i=>{if(!groups.has(i.mergeId))groups.set(i.mergeId,[]);groups.get(i.mergeId).push(i);});
  for(const group of groups.values())if(group.some(i=>i.day!==group[0].day||i.slot!==group[0].slot||i.block.teacher!==group[0].block.teacher||!sameSubject(i.block,group[0].block)||i.block.room!==group[0].block.room)||new Set(group.map(i=>cls(i.block))).size!==group.length)throw Error('合班必須同時段、同教師、同科目、同課室及不同班級');
- return {schemaVersion:4,unassignedBlocks,timetable,settings,rooms,rules,holidays,followups};
+ return {schemaVersion:5,unassignedBlocks,timetable,settings,rooms,rules,holidays,followups};
 }
 function matchesRule(rule,b){return rule.kind==='global'||rule.kind==='teacher'&&rule.target===b.teacher||rule.kind==='room'&&rule.target===b.room||rule.kind==='program'&&rule.target===b.program||rule.kind==='class'&&rule.target===cls(b);}
 const restrictions=(rules,b,day,slot)=>rules.filter(r=>matchesRule(r,b)&&r.cells.includes(day+':'+slot));
 function conflicts(a,b){if(a.day!==b.day||a.slot!==b.slot)return [];const out=[];const merge=a.mergeId&&a.mergeId===b.mergeId&&sameSubject(a.block,b.block)&&a.block.teacher===b.block.teacher&&a.block.room===b.block.room;if(cls(a.block)===cls(b.block))out.push('班級撞堂');if(a.block.teacher===b.block.teacher&&!merge)out.push('教師撞堂');if(a.block.room&&a.block.room===b.block.room&&!merge)out.push('課室撞堂');return out;}
 function audit(timetable){const out=[];const groups=new Map();for(const i of timetable){const k=i.day+':'+i.slot;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(i);}for(const items of groups.values())for(let a=0;a<items.length;a++)for(let b=a+1;b<items.length;b++){const types=conflicts(items[a],items[b]);if(types.length)out.push({a:items[a],b:items[b],types});}return out;}
+const isFOF=b=>!b.faculty||['金融學院','FOF'].includes(b.faculty);
+const isExam=b=>['開卷考試','閉卷考試'].includes(b.assessment);
+const teachingWeeks=(b,settings)=>Math.min(settings.weeks,isExam(b)?14:b.assessment==='報告/論文'?15:settings.weeks);
+function teachingPeriod(b,settings){
+ const weeks=teachingWeeks(b,settings),start=settings.startDate||'';
+ const end=settings.endDate?new Date(new Date(settings.endDate+'T00:00:00Z').getTime()-(settings.weeks-weeks)*7*86400000).toISOString().slice(0,10):'';
+ return {start,end:start&&end<start?'':end,weeks};
+}
+function scheduleRows(data){
+ const groups=new Map();
+ for(const i of data.timetable){const b=i.block,p=teachingPeriod(b,data.settings);
+  const key=JSON.stringify([b.subjectCode,b.subject,b.credits??3,b.courseType||'必修',cls(b),b.teacher,b.room,b.assessment,b.faculty,p.start,p.end]);
+  if(!groups.has(key))groups.set(key,{b,p,days:new Map()});const g=groups.get(key);if(!g.days.has(i.day))g.days.set(i.day,new Set());g.days.get(i.day).add(i.slot);
+ }
+ const out=[],names=['','星期一','星期二','星期三','星期四','星期五','星期六','星期日'];
+ for(const {b,p,days} of groups.values()){
+  const combinations=new Map();for(const [day,set] of [...days].sort((a,b)=>a[0]-b[0])){const times=[...set].sort((a,b)=>a-b).map(n=>slots[n-1].time).join('; ');if(!combinations.has(times))combinations.set(times,[]);combinations.get(times).push(names[day]);}
+  for(const [times,ds] of combinations)out.push({'科目編號':b.subjectCode,'科目名':b.subject,'學分':b.credits??3,'必修/選修':b.courseType||'必修','班級':b.grade+b.className,'星期':ds.join('、'),'時間':times,'課室':b.room,'上課期間':p.start&&p.end?p.start.replaceAll('-','.')+'-'+p.end.replaceAll('-','.'):'未設定學期日期'});
+ }
+ return out;
+}
 function roomPressure(data,day,slot){
- const items=data.timetable.filter(i=>i.day===day&&i.slot===slot);
+ const items=data.timetable.filter(i=>isFOF(i.block)&&i.day===day&&i.slot===slot);
  const names=[...new Set([...data.rooms.map(r=>r.name),...items.map(i=>i.block.room).filter(Boolean)])];
  return names.map(name=>{const list=items.filter(i=>i.block.room===name),room=data.rooms.find(r=>r.name===name),seats=list.reduce((sum,i)=>sum+(i.block.headcount||0),0),unknown=list.filter(i=>i.block.headcount===null||i.block.headcount===undefined).length;const sessions=new Set(list.map(session)).size;
   const blocked=restrictions(data.rules,{room:name},day,slot).length>0;
   return {name,capacity:room?room.capacity:null,seats,unknown,sessions,blocked,over:!!room&&seats>room.capacity,conflict:sessions>1,ratio:room?seats/room.capacity:null};
  });
 }
-function slotLoad(timetable,day,slot){const items=timetable.filter(i=>i.day===day&&i.slot===slot);return {classes:items.length,sessions:new Set(items.map(session)).size,rooms:new Set(items.map(i=>i.block.room).filter(Boolean)).size,missingRooms:items.filter(i=>!i.block.room).length};}
-function pressure(data,day,slot){const rows=roomPressure(data,day,slot),load=slotLoad(data.timetable,day,slot);const available=rows.filter(r=>r.capacity!==null&&!r.blocked);return {...load,rows,availableRooms:available.length,occupiedRooms:available.filter(r=>r.sessions>0).length,totalSeats:available.reduce((s,r)=>s+r.capacity,0),overRooms:rows.filter(r=>r.over).length,unknownClasses:data.timetable.filter(i=>i.day===day&&i.slot===slot&&(i.block.headcount===null||i.block.headcount===undefined)).length,unregistered:rows.filter(r=>r.sessions&&!r.capacity).length,conflictRooms:rows.filter(r=>r.conflict||r.blocked&&r.sessions).length};}
+function slotLoad(timetable,day,slot){const items=timetable.filter(i=>isFOF(i.block)&&i.day===day&&i.slot===slot);return {classes:items.length,sessions:new Set(items.map(session)).size,rooms:new Set(items.map(i=>i.block.room).filter(Boolean)).size,missingRooms:items.filter(i=>!i.block.room).length};}
+function pressure(data,day,slot){const rows=roomPressure(data,day,slot),load=slotLoad(data.timetable,day,slot);const available=rows.filter(r=>r.capacity!==null&&!r.blocked);return {...load,rows,availableRooms:available.length,occupiedRooms:available.filter(r=>r.sessions>0).length,totalSeats:available.reduce((s,r)=>s+r.capacity,0),overRooms:rows.filter(r=>r.over).length,unknownClasses:data.timetable.filter(i=>isFOF(i.block)&&i.day===day&&i.slot===slot&&(i.block.headcount===null||i.block.headcount===undefined)).length,unregistered:rows.filter(r=>r.sessions&&!r.capacity).length,conflictRooms:rows.filter(r=>r.conflict||r.blocked&&r.sessions).length};}
 function placement(data,blockId,day,slot){
  const original=data.timetable.find(i=>i.block.id===blockId),b=original?original.block:data.unassignedBlocks.find(b=>b.id===blockId);
  const fail=message=>({ok:false,message});if(!b)return fail('找不到課節');if(b.locked)return fail('此課節已鎖定');if(!Number.isInteger(day)||day<1||day>7||!Number.isInteger(slot)||slot<1||slot>8)return fail('無效時段');
@@ -92,10 +118,16 @@ function placement(data,blockId,day,slot){
  if(merge.some(i=>i.block.locked))return fail('合班對象已鎖定，請先解鎖');
  if(b.room&&others.some(i=>i.block.room===b.room&&!merge.includes(i)))return fail('課室撞堂');
  const room=data.rooms.find(r=>r.name===b.room),sum=(b.headcount||0)+merge.reduce((s,i)=>s+(i.block.headcount||0),0);
- if(room&&sum>room.capacity)return fail(`課室容量不足：${b.room} 已知人數${sum}，容量${room.capacity}`);
+ if(isFOF(b)&&room&&sum>room.capacity)return fail(`課室容量不足：${b.room} 已知人數${sum}，容量${room.capacity}`);
  return {ok:true,needsMerge:merge.length>0,mergeIds:merge.map(i=>i.block.id)};
 }
-function stats(pool,timetable,settings,timeSlots=slots){const map=new Map();const get=t=>{if(!map.has(t))map.set(t,{name:t,classes:new Set(),scheduled:0,pending:0,minutes:0,physical:new Set()});return map.get(t);};const label=b=>`${b.program} ${b.grade}${b.className} ${b.subjectCode} ${b.subject}`;pool.forEach(b=>{const s=get(b.teacher);s.classes.add(label(b));s.pending++;});timetable.forEach(i=>{const s=get(i.block.teacher);s.classes.add(label(i.block));s.scheduled++;s.minutes+=minutes(timeSlots.find(s=>s.num===i.slot));s.physical.add(session(i));});return [...map.values()].map(s=>({name:s.name,classes:[...s.classes].sort(),scheduled:s.scheduled,pending:s.pending,physical:s.physical.size,clockHours:round(s.minutes*settings.weeks/60),numerator:round(s.minutes*settings.weeks/settings.academicMinutes),denominator:round((s.minutes+s.pending*75)*settings.weeks/settings.academicMinutes)})).sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant'));}
+function stats(pool,timetable,settings,timeSlots=slots){
+ const map=new Map(),get=t=>{if(!map.has(t))map.set(t,{name:t,classes:new Set(),scheduled:0,pending:0,weightedMinutes:0,pendingMinutes:0,physical:new Set()});return map.get(t);};
+ const label=b=>`${b.program} ${b.grade}${b.className} ${b.subjectCode} ${b.subject} · ${b.assessment||'未設定'} · ${teachingWeeks(b,settings)}週`;
+ pool.filter(isFOF).forEach(b=>{const s=get(b.teacher);s.classes.add(label(b));s.pending++;s.pendingMinutes+=75*teachingWeeks(b,settings);});
+ timetable.filter(i=>isFOF(i.block)).forEach(i=>{const s=get(i.block.teacher);s.classes.add(label(i.block));s.scheduled++;s.weightedMinutes+=minutes(timeSlots.find(s=>s.num===i.slot))*teachingWeeks(i.block,settings);s.physical.add(session(i));});
+ return [...map.values()].map(s=>({name:s.name,classes:[...s.classes].sort(),scheduled:s.scheduled,pending:s.pending,physical:s.physical.size,clockHours:round(s.weightedMinutes/60),numerator:round(s.weightedMinutes/settings.academicMinutes),denominator:round((s.weightedMinutes+s.pendingMinutes)/settings.academicMinutes)})).sort((a,b)=>a.name.localeCompare(b.name,'zh-Hant'));
+}
 function holidayImpacts(data){
  if(!data.settings.startDate||!data.settings.endDate)return [];
  const map=new Map();
@@ -103,6 +135,7 @@ function holidayImpacts(data){
   const from=h.date>data.settings.startDate?h.date:data.settings.startDate;
   const endDate=h.endDate||h.date,to=endDate<data.settings.endDate?endDate:data.settings.endDate;
   for(let date=from;date<=to;date=nextDate(date))for(const i of data.timetable){
+   const period=teachingPeriod(i.block,data.settings);if(!period.end||date>period.end)continue;
    const [start,end]=slotRange(i.slot);if(i.day!==weekday(date)||start>=h.end||end<=h.start)continue;
    const key=date+'|'+i.block.id;if(!map.has(key))map.set(key,{key,date,item:i,names:[],status:data.followups[key]?.status||'pending',note:data.followups[key]?.note||''});
    const row=map.get(key);if(!row.names.includes(h.name))row.names.push(h.name);
@@ -151,5 +184,5 @@ function suggestions(data,blockId,mode='balanced',weekends=false){
  }
  return out.sort((a,b)=>a.score-b.score||a.day-b.day||a.slot-b.slot).slice(0,8);
 }
-return {defaults,slots,validate,conflicts,audit,fullAudit,slotLoad,roomPressure,pressure,stats,placement,suggestions,restrictions,holidayImpacts,parseHolidayCSV,parseICS,sameSubject,cls,session,minutes,clock,dateISO,weekday,round};
+return {isFOF,teachingWeeks,teachingPeriod,scheduleRows,defaults,slots,validate,conflicts,audit,fullAudit,slotLoad,roomPressure,pressure,stats,placement,suggestions,restrictions,holidayImpacts,parseHolidayCSV,parseICS,sameSubject,cls,session,minutes,clock,dateISO,weekday,round};
 });
