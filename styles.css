@@ -82,3 +82,5 @@
 @media print{.print-course .course-term{display:none}}
 
 @media print{.print-table td{padding:.7mm 1.6mm}.print-footer{break-inside:avoid}}
+
+@media screen{.room-tools,.import-options{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.import-table{max-height:48vh;overflow:auto}.import-table th{position:sticky;top:0;background:#f0f5eb;z-index:1}.import-table td{vertical-align:top;min-width:130px}.import-table td:nth-child(3){min-width:250px}.import-table select{max-width:280px;width:100%;font-size:14px}.import-table .import-room{font-size:14px!important;margin:0 0 8px!important}.import-error{color:#a12828;font-size:14px;margin:0 0 7px}.import-warning{color:#775314;font-size:14px;margin:0 0 7px}.enrolment-dialog summary{font-weight:600;margin:12px 0}.import-options{margin:16px 0}.import-options .checkbox-label{margin:0!important}}

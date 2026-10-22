@@ -1,9 +1,9 @@
 {
   "name": "fof-course-scheduling",
   "private": true,
-  "version": "3.3.0",
+  "version": "3.4.0",
   "scripts": {
-    "test": "node --test tests/core.test.cjs tests/components.test.cjs && node tests/integration.cjs"
+    "test": "node --test tests/core.test.cjs tests/components.test.cjs tests/enrolment.test.cjs && node tests/integration.cjs"
   },
   "devDependencies": {
     "jsdom": "26.1.0"
