@@ -109,9 +109,19 @@ function scheduleRows(data){
  }
  return out;
 }
+const roomCollator=new Intl.Collator('zh-Hant',{numeric:true,sensitivity:'base'});
+const compareRooms=(a,b)=>roomCollator.compare(text(a).toUpperCase().replace(/^GDC-/,''),text(b).toUpperCase().replace(/^GDC-/,''))||roomCollator.compare(a,b);
+const sortRoomNames=names=>[...new Set(names.filter(Boolean))].sort(compareRooms);
+function distribution(timetable,{includeSunday=false,scope='all'}={}){
+ const days=includeSunday?7:6,cells=[],map=new Map();for(let day=1;day<=days;day++)for(const s of slots){const c={day,slot:s.num,classes:0,people:0,unknownPeople:0,keys:new Set()};cells.push(c);map.set(day+':'+s.num,c);}
+ const outside=new Set();for(const i of timetable){if(scope==='fof'&&!isFOF(i.block))continue;const c=map.get(i.day+':'+i.slot);if(!c){outside.add(session(i));continue;}c.classes++;c.keys.add(session(i));if(i.block.headcount===null||i.block.headcount===undefined)c.unknownPeople++;else c.people+=i.block.headcount;}
+ const totalSessions=cells.reduce((n,c)=>n+c.keys.size,0),slotCount=cells.length,average=totalSessions/slotCount;
+ const result=cells.map(c=>{const sessions=c.keys.size,share=totalSessions?sessions/totalSessions*100:0,multiple=average?sessions/average:0;const tone=!sessions?'empty':sessions>=2&&multiple>=2?'danger':sessions>=2&&multiple>=1.5?'warn':'healthy';return {day:c.day,slot:c.slot,classes:c.classes,people:c.people,unknownPeople:c.unknownPeople,sessions,share,multiple,tone,label:tone==='danger'?'高度集中':tone==='warn'?'偏集中':tone==='empty'?'沒有課堂':'一般'};});
+ return {days,scope,cells:result,totalSessions,slotCount,average,expectedShare:100/slotCount,outsideSessions:outside.size,peak:Math.max(0,...result.map(c=>c.sessions))};
+}
 function roomPressure(data,day,slot){
  const items=data.timetable.filter(i=>isFOF(i.block)&&i.day===day&&i.slot===slot);
- const names=[...new Set([...data.rooms.map(r=>r.name),...items.map(i=>i.block.room).filter(Boolean)])];
+ const names=sortRoomNames([...data.rooms.map(r=>r.name),...items.map(i=>i.block.room)]);
  return names.map(name=>{const list=items.filter(i=>i.block.room===name),room=data.rooms.find(r=>r.name===name),seats=list.reduce((sum,i)=>sum+(i.block.headcount||0),0),unknown=list.filter(i=>i.block.headcount===null||i.block.headcount===undefined).length;const sessions=new Set(list.map(session)).size;
   const blocked=restrictions(data.rules,{room:name},day,slot).length>0;
   return {name,capacity:room?room.capacity:null,seats,unknown,sessions,blocked,over:!!room&&seats>room.capacity,conflict:sessions>1,ratio:room?seats/room.capacity:null};
@@ -199,5 +209,5 @@ function suggestions(data,blockId,mode='balanced',weekends=false){
  }
  return out.sort((a,b)=>a.score-b.score||a.day-b.day||a.slot-b.slot).slice(0,8);
 }
-return {assessmentKey,subjectAssessments,setSubjectAssessment,isFOF,teachingWeeks,teachingPeriod,scheduleRows,defaults,slots,validate,conflicts,audit,fullAudit,slotLoad,roomPressure,pressure,stats,placement,suggestions,restrictions,holidayImpacts,parseHolidayCSV,parseICS,sameSubject,cls,session,minutes,clock,dateISO,weekday,round};
+return {distribution,compareRooms,sortRoomNames,assessmentKey,subjectAssessments,setSubjectAssessment,isFOF,teachingWeeks,teachingPeriod,scheduleRows,defaults,slots,validate,conflicts,audit,fullAudit,slotLoad,roomPressure,pressure,stats,placement,suggestions,restrictions,holidayImpacts,parseHolidayCSV,parseICS,sameSubject,cls,session,minutes,clock,dateISO,weekday,round};
 });

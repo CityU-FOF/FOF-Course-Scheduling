@@ -73,3 +73,18 @@ test('Excel combines exact day/time patterns without inventing Cartesian combina
  d=state({settings,timetable:[make('a',1,1),make('b',1,2),make('c',3,1)]});assert.equal(C.scheduleRows(d).length,2);
  d=state({settings,timetable:[make('a',1,1),make('b',1,2,{room:'G2209'}),make('c',1,3,{faculty:'通識教育部',assessment:'報告/論文'})]});rows=C.scheduleRows(d);assert.equal(rows.length,3);assert.ok(rows.some(r=>r['上課期間']==='2026.08.24-2026.12.04'));assert.equal(rows[0]['學分'],3);
 });
+
+test('distribution measures 20 of 48 lessons as 41.67 percent and twenty times the slot average',()=>{
+ const tt=Array.from({length:48},(_,n)=>item('d'+n,{className:'C'+n,teacher:'T'+n,room:''},n<20?{day:1,slot:1}:{day:Math.floor((n-19)/8)+1,slot:(n-19)%8+1}));const d=C.distribution(tt),c=d.cells.find(c=>c.day===1&&c.slot===1);
+ assert.equal(d.slotCount,48);assert.equal(d.totalSessions,48);assert.equal(d.average,1);assert.equal(C.round(c.share),41.67);assert.equal(c.multiple,20);assert.equal(c.tone,'danger');assert.ok(Math.abs(d.cells.reduce((sum,c)=>sum+c.share,0)-100)<1e-9);
+});
+test('distribution handles empty plans, sparse samples, merges, external courses and unknown people',()=>{
+ const empty=C.distribution([]);assert.equal(empty.totalSessions,0);assert.ok(empty.cells.every(c=>c.share===0&&c.multiple===0&&c.tone==='empty'));
+ const tt=[item('a',{headcount:20},{mergeId:'M'}),item('b',{className:'B',headcount:10},{mergeId:'M'}),item('e',{faculty:'通識教育部',teacher:'外院',className:'C',headcount:null}, {day:2,slot:2})];const d=C.distribution(tt);assert.equal(d.totalSessions,2);assert.equal(d.cells[0].sessions,1);assert.equal(d.cells[0].people,30);assert.equal(d.cells[0].tone,'healthy');assert.equal(d.cells.find(c=>c.day===2&&c.slot===2).unknownPeople,1);assert.equal(C.distribution(tt,{scope:'fof'}).totalSessions,1);
+});
+test('Sunday switches denominator and colour follows a moved lesson without changing data',()=>{
+ const tt=[item('a'),item('b',{className:'B'}),item('s',{className:'S'},{day:7})],original=JSON.stringify(tt);const d=C.distribution(tt);assert.equal(d.totalSessions,2);assert.equal(d.outsideSessions,1);assert.equal(d.cells[0].tone,'danger');const sunday=C.distribution(tt,{includeSunday:true});assert.equal(sunday.slotCount,56);assert.equal(sunday.totalSessions,3);assert.equal(sunday.outsideSessions,0);assert.equal(JSON.stringify(tt),original);const moved=tt.map(i=>i.block.id==='b'?{...i,day:2}:i);assert.equal(C.distribution(moved).cells[0].tone,'healthy');
+});
+test('room names sort numerically and GDC aliases stay beside the same room number',()=>{
+ const names=['G2216','G2209','G2207','G2201','GDC-G2106','G404','G2209'];const before=[...names];assert.deepEqual(C.sortRoomNames(names),['G404','GDC-G2106','G2201','G2207','G2209','G2216']);assert.deepEqual(names,before);
+});

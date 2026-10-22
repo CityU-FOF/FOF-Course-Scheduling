@@ -84,3 +84,13 @@
 @media print{.print-table td{padding:.7mm 1.6mm}.print-footer{break-inside:avoid}}
 
 @media screen{.room-tools,.import-options{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.import-table{max-height:48vh;overflow:auto}.import-table th{position:sticky;top:0;background:#f0f5eb;z-index:1}.import-table td{vertical-align:top;min-width:130px}.import-table td:nth-child(3){min-width:250px}.import-table select{max-width:280px;width:100%;font-size:14px}.import-table .import-room{font-size:14px!important;margin:0 0 8px!important}.import-error{color:#a12828;font-size:14px;margin:0 0 7px}.import-warning{color:#775314;font-size:14px;margin:0 0 7px}.enrolment-dialog summary{font-weight:600;margin:12px 0}.import-options{margin:16px 0}.import-options .checkbox-label{margin:0!important}}
+
+/* v3.5 Independent analysis panes keep later panels within reach. */
+@media screen{
+ .analysis-mode{display:flex;align-items:center;gap:20px;padding:16px 22px;flex-wrap:wrap}.analysis-mode .segmented button{font-size:16px;padding:10px 16px}
+ .distribution-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:0 22px 16px}.distribution-summary>div{background:#f3f8ee;border:1px solid #dce7d6;border-top:3px solid #c7a14e;border-radius:8px;padding:12px 15px}.distribution-summary small{display:block;color:#506a54}.distribution-summary strong{display:block;font-size:26px;font-weight:600;color:#23583c}.distribution-summary strong small{display:inline;font-size:15px}
+ .workspace .list-scroll{max-height:clamp(200px,42vh,480px);overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}.workspace .list-scroll th{position:sticky;top:0;z-index:2;background:#eef5e9;box-shadow:0 1px #d7e3d1}.workspace .list-scroll:focus-visible,.analysis-scroll:focus-visible,.teacher-subject-scroll:focus-visible{outline:3px solid #b6945e;outline-offset:-3px}
+ .workspace .analysis-scroll{max-height:clamp(270px,44vh,530px);overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}.analysis-scroll .week-grid{overflow:clip}.analysis-scroll .grid-heading{position:sticky;top:0;z-index:3}.analysis-scroll .time-label{position:sticky;left:0;z-index:2}.analysis-scroll .grid-heading:first-child{left:0;z-index:4}
+ .distribution-cell{min-height:112px;padding:9px 12px;gap:4px}.distribution-cell>strong{font-size:25px}.distribution-cell.empty{padding:9px 12px}.teacher-subject-scroll{max-height:200px;overflow:auto;overscroll-behavior:contain;padding-right:10px}
+ @media(max-width:850px){.distribution-summary{grid-template-columns:repeat(2,minmax(0,1fr));padding:0 15px 15px}.workspace .list-scroll{max-height:40vh}.workspace .analysis-scroll{max-height:42vh}.analysis-mode{padding:12px 15px}}
+}

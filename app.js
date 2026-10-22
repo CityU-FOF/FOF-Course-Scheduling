@@ -9,10 +9,19 @@ const FOFApp={setup(){
  let largePreference=false;try{largePreference=localStorage.getItem('fof_large_text')==='1';}catch(e){}
  const largeText=ref(largePreference);function toggleLargeText(){largeText.value=!largeText.value;try{localStorage.setItem('fof_large_text',largeText.value?'1':'0');}catch(e){}}
  const programs=['應用經濟學學士學位課程','金融學碩士學位課程','金融科技碩士學位課程','金融學博士學位課程'];
- const nav=[{id:'board',label:'排課工作台',sub:'班級與教師課表'},{id:'pressure',label:'教室容量壓力',sub:'時段負荷與座位需求'},{id:'stats',label:'教學時數',sub:'按班累加核算'},{id:'rules',label:'排課限制',sub:'教師與禁排時段'},{id:'rooms',label:'教室資料',sub:'容量與班級人數'},{id:'holidays',label:'假期與補課',sub:'日期檢查與跟進'}];
+  const nav=[{id:'board',label:'排課工作台',sub:'班級與教師課表'},{id:'pressure',label:'時段分佈與容量',sub:'集中程度與座位需求'},{id:'stats',label:'教學時數',sub:'按班累加核算'},{id:'rules',label:'排課限制',sub:'教師與禁排時段'},{id:'rooms',label:'教室資料',sub:'容量與班級人數'},{id:'holidays',label:'假期與補課',sub:'日期檢查與跟進'}];
  const days=['星期一','星期二','星期三','星期四','星期五','星期六','星期日'];
  watch(modal,(v,old)=>{if(v&&v!==old)notice.value='';},{flush:'sync'});
  const snapshot=()=>JSON.stringify(data),allBlocks=computed(()=>[...data.unassignedBlocks,...data.timetable.map(i=>i.block)]);
+ const includeSunday=ref(false),distributionScope=ref('all'),pressureMode=ref('distribution');
+ const distribution=computed(()=>C.distribution(data.timetable,{includeSunday:includeSunday.value,scope:distributionScope.value}));
+ const sortedRoomNames=computed(()=>C.sortRoomNames([...data.rooms.map(r=>r.name),...allBlocks.value.map(b=>b.room)]));
+ const sortedRooms=computed(()=>[...data.rooms].sort((a,b)=>C.compareRooms(a.name,b.name)));
+ watch(sortedRoomNames,names=>{if(!names.includes(roomView.value))roomView.value=names[0]||'';},{immediate:true});
+ watch(includeSunday,v=>{if(!v&&pressureDay.value===7)pressureDay.value=1;});
+ const distributionCell=(day,slot)=>distribution.value.cells.find(c=>c.day===day&&c.slot===slot);
+ const distributionItems=computed(()=>data.timetable.filter(i=>i.day===pressureDay.value&&i.slot===pressureSlot.value&&(distributionScope.value==='all'||C.isFOF(i.block))));
+ const percent=n=>C.round(n)+'%';
  const classes=computed(()=>{const map=new Map();for(const b of allBlocks.value)map.set(C.cls(b),{key:C.cls(b),program:b.program,grade:b.grade,className:b.className,label:b.program+' · '+b.grade+b.className+'班'});return [...map.values()].sort((a,b)=>a.program.localeCompare(b.program)||a.grade.localeCompare(b.grade)||a.className.localeCompare(b.className));});
  watch(classes,list=>{if(!list.some(c=>c.key===classKey.value))classKey.value=list[0]?.key||'';},{immediate:true});
  const teachers=computed(()=>[...new Set(allBlocks.value.map(b=>b.teacher))].sort((a,b)=>a.localeCompare(b,'zh-Hant')));
@@ -92,9 +101,10 @@ const FOFApp={setup(){
  function loadAssessment(day,slot){return V.assessment(load(day,slot),data.rooms.length,data.settings.capacity,data.settings.stage);}
  const selectedPressure=computed(()=>load(pressureDay.value,pressureSlot.value));
  function heat(day,slot){return loadAssessment(day,slot).tone;}
+ function setPressureMode(mode){pressureMode.value=mode;if(mode==='distribution'&&!includeSunday.value&&pressureDay.value===7)pressureDay.value=1;}
  function selectPressure(day,slot){pressureDay.value=day;pressureSlot.value=slot;}
  function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
- function exportData(){download('FOF排課v3.4_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({...JSON.parse(snapshot()),exportedAt:new Date().toISOString()},null,2),'application/json');}
+ function exportData(){download('FOF排課v3.5_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({...JSON.parse(snapshot()),exportedAt:new Date().toISOString()},null,2),'application/json');}
  async function importData(event){const file=event.target.files[0];if(!file)return;try{if(file.size>10*1024*1024)throw Error('檔案超過10MB');const incoming=C.validate(JSON.parse(await file.text()));if(!confirm(`匯入${incoming.timetable.length}個已排及${incoming.unassignedBlocks.length}個待排課節，將取代目前資料。繼續？`))return;if(mutate(d=>Object.assign(d,incoming)))notify('已匯入；請核對考核形式、開課學院、學期日期及檢查清單');}catch(e){notify('未能匯入：'+e.message);}finally{event.target.value='';}}
  function builtinHolidays(){const year=Number(holidayYear.value);holidayPreview.value=FOFHolidayData[year].map(([date,name])=>({id:'MO-'+year+'-'+date,date:year+'-'+date,endDate:year+'-'+date,name,start:0,end:1440,enabled:true,source:`澳門政府公眾假期${year}（2026-10-21核對）`}));modal.value='holidayPreview';}
  async function importHolidays(event){const file=event.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw Error('檔案超過2MB');const input=await file.text();const rows=file.name.toLowerCase().endsWith('.ics')?C.parseICS(input):C.parseHolidayCSV(input,Papa);holidayPreview.value=C.validate({...JSON.parse(snapshot()),holidays:rows}).holidays;modal.value='holidayPreview';}catch(e){notify('假期未匯入：'+e.message);}finally{event.target.value='';}}
@@ -118,7 +128,8 @@ const FOFApp={setup(){
   add('待排課',data.unassignedBlocks.map(b=>({'課程':b.program,'年級':b.grade,'班級':b.className,'科目':b.subject,'教師':b.teacher,'課室':b.room,'人數':b.headcount??'未填','本班正選':b.enrolment?.base??'未導入','跨課程正選':b.enrolment?.cross??'未導入'})));
   add('教學時數',stats.value.map(s=>({'教師':s.name,'任教明細':s.classes.join('；'),'每週班級節次':s.scheduled,'每週實際課堂':s.physical,'待排節次':s.pending,'已排名義學時':s.numerator,'總學時':s.denominator,'按班鐘點小時':s.clockHours,'計算口徑':'僅本院；含考試週按學期週數核算；合班各班相加；假期未自動扣減'})));
   const loads=[];for(let day=1;day<=7;day++)for(let slot=1;slot<=8;slot++){const p=load(day,slot);loads.push({'星期':days[day-1],'節次':slot,'實際課堂':p.sessions,'班級節次':p.classes,'可用已登記教室':p.availableRooms,'已佔用已登記教室':p.occupiedRooms,'未填課室班次':p.missingRooms,'未填人數班次':p.unknownClasses,'超容量教室':p.overRooms});}add('時段壓力',loads);
-  add('教室容量',data.rooms.map(r=>({'教室':r.name,'容量':r.capacity})));add('排課限制',data.rules.map(r=>({'類型':kindLabel(r.kind),'對象':targetLabel(r),'禁排格':r.cells.join('；'),'原因':r.reason})));
+  add('時段課堂分佈',distribution.value.cells.map(c=>({'星期':days[c.day-1],'時間':showTime(c.slot),'實際課堂':c.sessions,'佔全週課堂(%)':C.round(c.share),'平均課堂數':C.round(distribution.value.average),'平均倍數':C.round(c.multiple),'已知學生人次':c.people,'未填人數班次':c.unknownPeople,'集中程度':c.label,'比較時段數':distribution.value.slotCount,'全週課堂數':distribution.value.totalSessions,'範圍':distributionScope.value==='all'?'含外院課':'僅本院'})));
+  add('教室容量',sortedRooms.value.map(r=>({'教室':r.name,'容量':r.capacity})));add('排課限制',data.rules.map(r=>({'類型':kindLabel(r.kind),'對象':targetLabel(r),'禁排格':r.cells.join('；'),'原因':r.reason})));
   add('假期撞課跟進',impacts.value.map(r=>({'日期':r.date,'假期':r.names.join('／'),...detail(r.item),'狀態':statusLabel(r.status),'補課跟進備註':r.note})));
   add('假期清單',data.holidays.map(h=>({'開始日期':h.date,'結束日期':h.endDate||h.date,'名稱':h.name,'開始':formatMinute(h.start),'結束':formatMinute(h.end),'啟用':h.enabled?'是':'否','來源':h.source})));
   add('設定',[data.settings]);XLSX.writeFile(wb,'FOF排課及容量假期報表.xlsx');
@@ -130,7 +141,7 @@ const FOFApp={setup(){
  function targetLocked(g){const t=EI.targets(data).find(t=>t.key===g.targetKey);return !!t?.blocks.some(b=>b.locked);}
  function openIssues(){modal.value='issues';}
  function gotoIssue(row){choose(row.item.block);tab.value='board';modal.value='';}
- return {EI,enrolmentFilter,enrolmentVisible,enrolmentReview,enrolmentOptions,importEnrolment,applyEnrolment,enrolmentTargets,targetLocked,assessmentConflicts,inheritAssessment,V,pointerReady,showSuggestions,suggestionMode,suggestWeekends,proposed,programStyle,programInfo,loadAssessment,largeText,toggleLargeText,C,data,tab,view,nav,days,programs,allPrograms,classes,teachers,selected,selectedBlock,search,poolProgram,filteredPool,classKey,teacher,roomView,modal,draft,history,future,message,notice,stats,issues,impacts,filteredImpacts,pendingImpacts,knownCount,allBlocks,cohorts,boardTitle,holidayYear,holidayPreview,impactStatus,pressureDay,pressureSlot,selectedPressure,printKeys,printOptions,printPages,
+ return {setPressureMode,includeSunday,distributionScope,pressureMode,distribution,distributionCell,distributionItems,percent,sortedRoomNames,sortedRooms,EI,enrolmentFilter,enrolmentVisible,enrolmentReview,enrolmentOptions,importEnrolment,applyEnrolment,enrolmentTargets,targetLocked,assessmentConflicts,inheritAssessment,V,pointerReady,showSuggestions,suggestionMode,suggestWeekends,proposed,programStyle,programInfo,loadAssessment,largeText,toggleLargeText,C,data,tab,view,nav,days,programs,allPrograms,classes,teachers,selected,selectedBlock,search,poolProgram,filteredPool,classKey,teacher,roomView,modal,draft,history,future,message,notice,stats,issues,impacts,filteredImpacts,pendingImpacts,knownCount,allBlocks,cohorts,boardTitle,holidayYear,holidayPreview,impactStatus,pressureDay,pressureSlot,selectedPressure,printKeys,printOptions,printPages,
  undo,redo,choose,cellItems,cellLimits,place,drop,drag,returnPool,poolDrop,removePool,lock,openBatch,addBatchRow,generate,edit,saveBlock,openSettings,saveSettings,openRoom,saveRoom,deleteRoom,openRule,ruleKindChange,toggleRuleCell,toggleRuleDay,toggleRuleSlot,saveRule,deleteRule,kindLabel,targetLabel,load,heat,selectPressure,exportData,importData,builtinHolidays,importHolidays,applyHolidays,openHoliday,saveHoliday,toggleHoliday,deleteHoliday,openFollowup,saveFollowup,statusLabel,holidayTemplate,showTime,formatMinute,openPrint,print,printedItems,exportExcel,openIssues,gotoIssue,notify};
 },mounted(){this._pointerController=FOFPointerDnD.install({root:document.getElementById('app'),getBlock:id=>this.allBlocks.find(b=>b.id===id),onPlace:(id,day,slot)=>this.place(id,day,slot),onPool:id=>this.returnPool(id)});this.pointerReady=!!this._pointerController;},beforeUnmount(){this._pointerController?.destroy();}};
 createApp(FOFApp).mount('#app');
