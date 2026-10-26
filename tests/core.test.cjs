@@ -88,3 +88,13 @@ test('Sunday switches denominator and colour follows a moved lesson without chan
 test('room names sort numerically and GDC aliases stay beside the same room number',()=>{
  const names=['G2216','G2209','G2207','G2201','GDC-G2106','G404','G2209'];const before=[...names];assert.deepEqual(C.sortRoomNames(names),['G404','GDC-G2106','G2201','G2207','G2209','G2216']);assert.deepEqual(names,before);
 });
+
+test('same-code classes trigger merge despite display-name variation and an unassigned room',()=>{
+ const d=state({unassignedBlocks:[block('b',{className:'B',room:'',subject:'公司金融（中文名稱）'})],timetable:[item('a')]});const p=C.placement(d,'b',1,1);assert.equal(p.needsMerge,true);assert.equal(p.ok,true);assert.equal(p.proposedRoom,'G2207');assert.equal(C.placement(d,'b',1,1,{mergeRoom:'G2207'}).ok,true);
+});
+test('different known rooms require a common-room choice and recheck combined capacity and restrictions',()=>{
+ const d=state({rooms:[{name:'G2207',capacity:50},{name:'G2209',capacity:80}],unassignedBlocks:[block('b',{className:'B',room:'G2209',headcount:30})],timetable:[item('a',{headcount:30})]});const p=C.placement(d,'b',1,1);assert.equal(p.needsMerge,true);assert.equal(p.requiresRoomChoice,true);assert.equal(C.placement(d,'b',1,1,{mergeRoom:''}).ok,false);assert.match(C.placement(d,'b',1,1,{mergeRoom:'G2207'}).message,/容量不足/);assert.equal(C.placement(d,'b',1,1,{mergeRoom:'G2209'}).ok,true);d.rules.push({id:'r',kind:'room',target:'G2209',cells:['1:1'],reason:'維修'});assert.equal(C.placement(d,'b',1,1,{mergeRoom:'G2209'}).ok,false);d.rooms[0].capacity=80;assert.equal(C.placement(d,'b',1,1,{mergeRoom:'G2207'}).ok,true);
+});
+test('an alternative common room cannot collide with another teacher and differing subject codes never merge',()=>{
+ const d=state({unassignedBlocks:[block('b',{className:'B',room:''})],timetable:[item('a'),item('c',{className:'C',teacher:'另一教師',room:'G2209'})]});assert.equal(C.placement(d,'b',1,1,{mergeRoom:'G2209'}).ok,false);d.unassignedBlocks[0].subjectCode='BAE999';assert.equal(C.placement(d,'b',1,1).needsMerge,undefined);assert.equal(C.placement(d,'b',1,1).ok,false);
+});

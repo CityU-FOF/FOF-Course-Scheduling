@@ -12,7 +12,7 @@
    end(e){if(!activeId){clear();return;}const id=activeId,z=targetAt(e.clientX,e.clientY);suppressUntil=Date.now()+450;clear();if(!z)return;if(z.hasAttribute('data-drop-pool'))options.onPool(id);else options.onPlace(id,Number(z.dataset.dropDay),Number(z.dataset.dropSlot));}
   };
   const bound=interact('.course-card[data-block-id]:not(.locked)',{context:root}).draggable({inertia:false,ignoreFrom:'button,input,select,textarea,a',listeners});
-  const suppress=e=>{if(Date.now()<suppressUntil){e.preventDefault();e.stopImmediatePropagation();}};
+  const suppress=e=>{if(e.target.closest?.('.dialog button,.dialog input,.dialog select,.dialog textarea'))return;if(Date.now()<suppressUntil){e.preventDefault();e.stopImmediatePropagation();}};
   const escape=e=>{if(e.key==='Escape')cancel();};
   const cancel=()=>{clear();interact.stop();};root.addEventListener('pointercancel',cancel);doc.addEventListener('touchcancel',cancel);root.addEventListener('click',suppress,true);doc.addEventListener('keydown',escape);win.addEventListener('blur',cancel);
   return {destroy(){bound.unset();clear();root.removeEventListener('click',suppress,true);doc.removeEventListener('keydown',escape);win.removeEventListener('blur',cancel);root.removeEventListener('pointercancel',cancel);doc.removeEventListener('touchcancel',cancel);},listeners};

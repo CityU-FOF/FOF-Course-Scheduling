@@ -7,6 +7,7 @@ const text=x=>typeof x==='string'?x.trim():'';
 const round=n=>Math.round(n*100)/100;
 const cls=b=>JSON.stringify([b.program,b.grade,b.className]);
 const sameSubject=(a,b)=>text(a.subjectCode).toUpperCase()===text(b.subjectCode).toUpperCase()&&text(a.subject)===text(b.subject);
+const sameMergeSubject=(a,b)=>text(a.subjectCode)&&text(b.subjectCode)?text(a.subjectCode).toUpperCase()===text(b.subjectCode).toUpperCase():sameSubject(a,b);
 const session=i=>i.mergeId?JSON.stringify(['merge',i.day,i.slot,i.mergeId]):JSON.stringify(['block',i.block.id]);
 const clock=t=>{if(!/^\d\d:\d\d$/.test(t))throw Error('時間須為 HH:mm');const [h,m]=t.split(':').map(Number);if(h>24||m>59||(h===24&&m))throw Error('時間超出範圍');return h*60+m;};
 const minutes=s=>{const [a,b]=s.time.split('-').map(clock);return b-a;};
@@ -69,13 +70,13 @@ function validate(raw){
  if(holidays.length>2000||rules.length>1000||rooms.length>1000)throw Error('設定數量過多');
  const followups=Object.create(null);for(const [key,v] of Object.entries(raw.followups||{})){if(!v||!['pending','planned','exempt'].includes(v.status)||typeof v.note!=='string')throw Error('假期跟進資料不正確');followups[key]={status:v.status,note:v.note.slice(0,2000)};}
  const groups=new Map();timetable.filter(i=>i.mergeId).forEach(i=>{if(!groups.has(i.mergeId))groups.set(i.mergeId,[]);groups.get(i.mergeId).push(i);});
- for(const group of groups.values())if(group.some(i=>i.day!==group[0].day||i.slot!==group[0].slot||i.block.teacher!==group[0].block.teacher||!sameSubject(i.block,group[0].block)||i.block.room!==group[0].block.room)||new Set(group.map(i=>cls(i.block))).size!==group.length)throw Error('合班必須同時段、同教師、同科目、同課室及不同班級');
+ for(const group of groups.values())if(group.some(i=>i.day!==group[0].day||i.slot!==group[0].slot||i.block.teacher!==group[0].block.teacher||!sameMergeSubject(i.block,group[0].block)||i.block.room!==group[0].block.room)||new Set(group.map(i=>cls(i.block))).size!==group.length)throw Error('合班必須同時段、同教師、同科目、同課室及不同班級');
  const subjectForms=new Map();for(const b of [...unassignedBlocks,...timetable.map(i=>i.block)]){const key=assessmentKey(b);if(!subjectForms.has(key))subjectForms.set(key,new Set());if(b.assessment!=='未設定')subjectForms.get(key).add(b.assessment);}for(const b of [...unassignedBlocks,...timetable.map(i=>i.block)]){const forms=subjectForms.get(assessmentKey(b));if(b.assessment==='未設定'&&forms.size===1)b.assessment=[...forms][0];}
  return {schemaVersion:6,unassignedBlocks,timetable,settings,rooms,rules,holidays,followups};
 }
 function matchesRule(rule,b){return rule.kind==='global'||rule.kind==='teacher'&&rule.target===b.teacher||rule.kind==='room'&&rule.target===b.room||rule.kind==='program'&&rule.target===b.program||rule.kind==='class'&&rule.target===cls(b);}
 const restrictions=(rules,b,day,slot)=>rules.filter(r=>matchesRule(r,b)&&r.cells.includes(day+':'+slot));
-function conflicts(a,b){if(a.day!==b.day||a.slot!==b.slot)return [];const out=[];const merge=a.mergeId&&a.mergeId===b.mergeId&&sameSubject(a.block,b.block)&&a.block.teacher===b.block.teacher&&a.block.room===b.block.room;if(cls(a.block)===cls(b.block))out.push('班級撞堂');if(a.block.teacher===b.block.teacher&&!merge)out.push('教師撞堂');if(a.block.room&&a.block.room===b.block.room&&!merge)out.push('課室撞堂');return out;}
+function conflicts(a,b){if(a.day!==b.day||a.slot!==b.slot)return [];const out=[];const merge=a.mergeId&&a.mergeId===b.mergeId&&sameMergeSubject(a.block,b.block)&&a.block.teacher===b.block.teacher&&a.block.room===b.block.room;if(cls(a.block)===cls(b.block))out.push('班級撞堂');if(a.block.teacher===b.block.teacher&&!merge)out.push('教師撞堂');if(a.block.room&&a.block.room===b.block.room&&!merge)out.push('課室撞堂');return out;}
 function audit(timetable){const out=[];const groups=new Map();for(const i of timetable){const k=i.day+':'+i.slot;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(i);}for(const items of groups.values())for(let a=0;a<items.length;a++)for(let b=a+1;b<items.length;b++){const types=conflicts(items[a],items[b]);if(types.length)out.push({a:items[a],b:items[b],types});}return out;}
 
 // A subject code owns one assessment across programmes, years and classes.
@@ -129,22 +130,30 @@ function roomPressure(data,day,slot){
 }
 function slotLoad(timetable,day,slot){const items=timetable.filter(i=>isFOF(i.block)&&i.day===day&&i.slot===slot);return {classes:items.length,sessions:new Set(items.map(session)).size,rooms:new Set(items.map(i=>i.block.room).filter(Boolean)).size,missingRooms:items.filter(i=>!i.block.room).length};}
 function pressure(data,day,slot){const rows=roomPressure(data,day,slot),load=slotLoad(data.timetable,day,slot);const available=rows.filter(r=>r.capacity!==null&&!r.blocked);return {...load,rows,availableRooms:available.length,occupiedRooms:available.filter(r=>r.sessions>0).length,totalSeats:available.reduce((s,r)=>s+r.capacity,0),overRooms:rows.filter(r=>r.over).length,unknownClasses:data.timetable.filter(i=>isFOF(i.block)&&i.day===day&&i.slot===slot&&(i.block.headcount===null||i.block.headcount===undefined)).length,unregistered:rows.filter(r=>r.sessions&&!r.capacity).length,conflictRooms:rows.filter(r=>r.conflict||r.blocked&&r.sessions).length};}
-function placement(data,blockId,day,slot){
+function placement(data,blockId,day,slot,options={}){
  const original=data.timetable.find(i=>i.block.id===blockId),b=original?original.block:data.unassignedBlocks.find(b=>b.id===blockId);
  const fail=message=>({ok:false,message});if(!b)return fail('找不到課節');if(b.locked)return fail('此課節已鎖定');if(!Number.isInteger(day)||day<1||day>7||!Number.isInteger(slot)||slot<1||slot>8)return fail('無效時段');
  if(original&&original.day===day&&original.slot===slot)return {ok:true,noChange:true};
  if(original&&original.mergeId)return fail('合班課請先移回待排池，再重新安排');
- const limits=restrictions(data.rules,b,day,slot);if(limits.length)return fail('不符合排課限制：'+limits.map(r=>r.reason||r.target||'全院禁排').join('；'));
+ const limits=restrictions(data.rules,b,day,slot).filter(r=>r.kind!=='room');if(limits.length)return fail('不符合排課限制：'+limits.map(r=>r.reason||r.target||'全院禁排').join('；'));
  const others=data.timetable.filter(i=>i!==original&&i.day===day&&i.slot===slot);
  if(others.some(i=>cls(i.block)===cls(b)))return fail('班級撞堂');
  const merge=others.filter(i=>i.block.teacher===b.teacher);
- if(merge.some(i=>!sameSubject(i.block,b)||i.block.room!==b.room))return fail('教師撞堂：科目或課室不同');
+ if(merge.some(i=>!sameMergeSubject(i.block,b)))return fail('教師撞堂：同一時段已有不同科目');
  if(new Set(merge.map(i=>i.mergeId||i.block.id)).size>1)return fail('教師已有未解決衝突');
  if(merge.some(i=>i.block.locked))return fail('合班對象已鎖定，請先解鎖');
- if(b.room&&others.some(i=>i.block.room===b.room&&!merge.includes(i)))return fail('課室撞堂');
- const room=data.rooms.find(r=>r.name===b.room),sum=(b.headcount||0)+merge.reduce((s,i)=>s+(i.block.headcount||0),0);
- if(isFOF(b)&&room&&sum>room.capacity)return fail(`課室容量不足：${b.room} 已知人數${sum}，容量${room.capacity}`);
- return {ok:true,needsMerge:merge.length>0,mergeIds:merge.map(i=>i.block.id)};
+ const roomChoices=sortRoomNames([b.room,...merge.map(i=>i.block.room)]),explicit=Object.prototype.hasOwnProperty.call(options,'mergeRoom');
+ const proposedRoom=roomChoices.length===1?roomChoices[0]:'';
+ const meta={needsMerge:merge.length>0,mergeIds:merge.map(i=>i.block.id),roomChoices,proposedRoom,requiresRoomChoice:merge.length>0&&roomChoices.length>1&&!explicit};
+ if(meta.requiresRoomChoice)return {ok:true,...meta};
+ const roomName=merge.length?(explicit?text(options.mergeRoom).toUpperCase():proposedRoom):b.room;
+ const mergeFail=message=>({...fail(message),...meta});
+ if(merge.length&&roomChoices.length>1&&!roomName)return mergeFail('請先選擇併班共用課室');
+ for(const x of [b,...merge.map(i=>i.block)]){if(restrictions(data.rules,{...x,room:roomName},day,slot).length)return mergeFail(merge.length?'併班共用課室或班級違反禁排限制':'不符合排課限制：課室不可用');}
+ if(roomName&&others.some(i=>i.block.room===roomName&&!merge.includes(i)))return mergeFail('課室撞堂');
+ const room=data.rooms.find(r=>r.name===roomName),sum=(b.headcount||0)+merge.reduce((s,i)=>s+(i.block.headcount||0),0);
+ if(isFOF(b)&&room&&sum>room.capacity)return mergeFail(`課室容量不足：${roomName} 已知人數${sum}，容量${room.capacity}`);
+ return {ok:true,...meta,mergeRoom:roomName};
 }
 function stats(pool,timetable,settings,timeSlots=slots){
  const map=new Map(),get=t=>{if(!map.has(t))map.set(t,{name:t,classes:new Set(),scheduled:0,pending:0,weightedMinutes:0,pendingMinutes:0,physical:new Set()});return map.get(t);};
