@@ -16,14 +16,33 @@ function dateISO(s){if(typeof s!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(s))retur
 const weekday=s=>new Date(s+'T00:00:00Z').getUTCDay()||7;
 const nextDate=s=>new Date(new Date(s+'T00:00:00Z').getTime()+86400000).toISOString().slice(0,10);
 const unique=(arr,name)=>{const ids=new Set();for(const a of arr){if(ids.has(a.id))throw Error(name+' ID重複');ids.add(a.id);}};
-const seedCatalog=[{code:'BAE406',name:'金融與經濟研究方法',directions:['金融學方向']},{code:'BAE411',name:'金融與經濟研究方法',directions:['經濟學方向']},{code:'BAE407',name:'實證方法與建模',directions:['金融學方向']},{code:'BAE412',name:'實證方法與建模',directions:['經濟學方向']}].map(c=>({...c,credits:null,courseType:'',faculty:'金融學院',terms:[],assessment:'未設定'}));
+// Curriculum supplied by the faculty on 2026-10-27. Credits are editable general defaults.
+const catalogRows=[
+ ['BAE101','微積分導論','上學期'],['BAE103','微觀經濟學導論','上學期'],['BAE105','會計學導論I','上學期'],
+ ['BAE202','量化分析','上學期'],['BAE203','中級微觀經濟學','上學期'],['BAE205','金融學原理','上學期'],['BAE208','管理學原理','上學期'],
+ ['BAE301','計量經濟學導論','上學期'],['BAE303','金融經濟學導論','上學期'],['BAE305','公司金融','上學期','金融學方向'],['BAE307','投資學','上學期','金融學方向'],['BAE309','勞動經濟學','上學期','經濟學方向'],['BAE310','產業經濟學','上學期','經濟學方向'],
+ ['BAE401','學術專題項目I','上學期'],['BAE404','研究報告I','上學期'],['BAE406','金融與經濟研究方法','上學期','金融學方向'],['BAE411','金融與經濟研究方法','上學期','經濟學方向'],['BAE407','實證方法與建模','上學期','金融學方向'],['BAE412','實證方法與建模','上學期','待確認'],['BAE409','風險管理簡介','上學期','金融學方向'],['BAE413','經濟思想史','上學期','經濟學方向'],
+ ['BAE102','線性代數導論','下學期'],['BAE104','宏觀經濟學導論','下學期'],['BAE106','會計學導論II','下學期'],['BAE201','企業數學與統計學','下學期'],['BAE204','中級宏觀經濟學','下學期'],['BAE206','金融市場簡介','下學期'],['BAE207','財務管理','下學期'],
+ ['BAE302','時間序列分析','下學期'],['BAE304','國際金融','下學期'],['BAE306','衍生品證券','下學期','金融學方向'],['BAE308','固定收益證券','下學期','金融學方向'],['BAE311','發展經濟學','下學期','經濟學方向'],['BAE312','國際貿易','下學期','經濟學方向'],
+ ['BAE402','學術專題項目II','下學期'],['BAE403','金融機構管理','下學期'],['BAE405','研究報告II','下學期'],['BAE408','金融前沿專題','下學期','金融學方向'],['BAE410','兼併與收購簡介','下學期','金融學方向'],['BAE414','當代中國經濟','下學期','經濟學方向'],['BAE415','博弈論導論','下學期','經濟學方向']
+];
+const seedCatalog=catalogRows.map(([code,name,term,direction])=>{const year=Number(code[3]);return {code,name,credits:3,courseType:direction?'選修':'必修',faculty:'金融學院',terms:[term],grades:[['','大一','大二','大三','大四'][year]],directions:direction==='待確認'?[]:direction?[direction]:year<3?['未分方向']:['金融學方向','經濟學方向'],assessment:'未設定',notes:code==='BAE412'?'方向待確認：最新清單標為金融學，先前說明為經濟學；舊資料方向保留，請確認後編輯。':''};});
+// Add missing codes and fill only blank defaults. Never rewrite lessons or custom defaults.
+function catalogPlan(catalog){
+ const out=JSON.parse(JSON.stringify(catalog)),changes=[],preserved=[];
+ for(const seed of seedCatalog){const c=out.find(c=>c.code===seed.code);if(!c){out.push(JSON.parse(JSON.stringify(seed)));changes.push({code:seed.code,name:seed.name,fields:['新增科目']});continue;}
+  const fields=[];for(const [key,label] of [['name','名稱'],['credits','學分'],['courseType','性質'],['faculty','單位'],['terms','學期'],['grades','年級'],['directions','方向'],['notes','備註']]){const empty=v=>v===undefined||v===null||v===''||Array.isArray(v)&&!v.length;if(empty(c[key])&&!empty(seed[key])){c[key]=JSON.parse(JSON.stringify(seed[key]));fields.push(label);}else if(!empty(seed[key])&&!empty(c[key])&&JSON.stringify(c[key])!==JSON.stringify(seed[key]))preserved.push({code:seed.code,field:label,value:Array.isArray(c[key])?c[key].join('、'):String(c[key])});}
+  if(fields.length)changes.push({code:seed.code,name:c.name,fields});
+ }
+ return {catalog:out,changes,preserved};
+}
 const seedExceptions=[{id:'EX-BAE406-BAE411',codes:['BAE406','BAE411'],enabled:true,reason:'本學期特殊安排：金融學／經濟學方向，同教師同時段可確認併班'}];
 function validate(raw){
  if(!raw||!Array.isArray(raw.unassignedBlocks)||!Array.isArray(raw.timetable))throw Error('備份必須包含待排課池及課表陣列');
- if(raw.schemaVersion!==undefined&&![2,3,4,5,6,7].includes(raw.schemaVersion))throw Error('不支援此備份版本');
+ if(raw.schemaVersion!==undefined&&![2,3,4,5,6,7,8].includes(raw.schemaVersion))throw Error('不支援此備份版本');
  if(raw.unassignedBlocks.length+raw.timetable.length>10000)throw Error('課節上限為10000');
  if(raw.catalog!==undefined&&!Array.isArray(raw.catalog)||raw.mergeExceptions!==undefined&&!Array.isArray(raw.mergeExceptions))throw Error('科目資料庫及併班例外必須為陣列');
- const catalog=(raw.catalog===undefined?seedCatalog:raw.catalog).map(c=>{if(!c||!text(c.code)||!text(c.name)||text(c.code).length>50||text(c.name).length>300||!Array.isArray(c.terms)||c.terms.some(t=>!['上學期','下學期'].includes(t))||!Array.isArray(c.directions)||c.directions.some(t=>!['金融學方向','經濟學方向','未分方向'].includes(t))||c.credits!==null&&(!Number.isFinite(c.credits)||c.credits<0||c.credits>30)||!['','必修','選修'].includes(c.courseType)||!['未設定','開卷考試','閉卷考試','報告/論文'].includes(c.assessment)||typeof c.faculty!=='string'||c.faculty.length>100)throw Error('科目預設資料不正確');return {code:text(c.code).toUpperCase(),name:text(c.name),credits:c.credits,courseType:c.courseType,faculty:text(c.faculty),terms:[...new Set(c.terms)],directions:[...new Set(c.directions)],assessment:c.assessment};});
+ const catalog=(raw.catalog===undefined?seedCatalog:raw.catalog).map(c=>{if(!c||!text(c.code)||!text(c.name)||text(c.code).length>50||text(c.name).length>300||!Array.isArray(c.terms)||c.terms.some(t=>!['上學期','下學期'].includes(t))||!Array.isArray(c.directions)||c.directions.some(t=>!['金融學方向','經濟學方向','未分方向'].includes(t))||c.credits!==null&&(!Number.isFinite(c.credits)||c.credits<0||c.credits>30)||!['','必修','選修'].includes(c.courseType)||!['未設定','開卷考試','閉卷考試','報告/論文'].includes(c.assessment)||typeof c.faculty!=='string'||c.faculty.length>100)throw Error('科目預設資料不正確');if(c.grades!==undefined&&(!Array.isArray(c.grades)||c.grades.some(g=>!['大一','大二','大三','大四','研一','研二','博一','博二','博三'].includes(g)))||c.notes!==undefined&&(typeof c.notes!=='string'||c.notes.length>1000))throw Error('科目年級或備註不正確');return {grades:[...new Set(c.grades||[])],notes:text(c.notes),code:text(c.code).toUpperCase(),name:text(c.name),credits:c.credits,courseType:c.courseType,faculty:text(c.faculty),terms:[...new Set(c.terms)],directions:[...new Set(c.directions)],assessment:c.assessment};});
  if(catalog.length>2000||new Set(catalog.map(c=>c.code)).size!==catalog.length)throw Error('科目編號重複或資料庫超過2000科');
  const mergeExceptions=(raw.mergeExceptions===undefined?seedExceptions:raw.mergeExceptions).map(r=>{if(!r||!text(r.id)||!Array.isArray(r.codes)||r.codes.length!==2||r.codes.some(c=>!text(c)||text(c).length>50)||typeof r.enabled!=='boolean'||typeof r.reason!=='string'||r.reason.length>1000)throw Error('跨編號併班例外不正確');const codes=r.codes.map(c=>text(c).toUpperCase()).sort();if(codes[0]===codes[1])throw Error('跨編號併班必須選擇兩個不同編號');return {id:text(r.id),codes,enabled:r.enabled,reason:text(r.reason)};});unique(mergeExceptions,'併班例外');if(mergeExceptions.length>100||new Set(mergeExceptions.map(r=>r.codes.join('|'))).size!==mergeExceptions.length)throw Error('併班例外重複或超過100對');
  const ids=new Set();
@@ -78,7 +97,7 @@ function validate(raw){
  const groups=new Map();timetable.filter(i=>i.mergeId).forEach(i=>{if(!groups.has(i.mergeId))groups.set(i.mergeId,[]);groups.get(i.mergeId).push(i);});
  for(const group of groups.values())if(group.some(i=>i.day!==group[0].day||i.slot!==group[0].slot||i.block.teacher!==group[0].block.teacher||!sameMergeSubject(i.block,group[0].block,mergeExceptions)||i.block.room!==group[0].block.room)||new Set(group.map(i=>cls(i.block))).size!==group.length||group.some((i,n)=>group.slice(n+1).some(j=>!sameMergeSubject(i.block,j.block,mergeExceptions))))throw Error('併班須同教師、同時段、共用課室及不同班級；跨編號須有啟用例外，停用例外前請先拆班');
  const subjectForms=new Map();for(const b of [...unassignedBlocks,...timetable.map(i=>i.block)]){const key=assessmentKey(b);if(!subjectForms.has(key))subjectForms.set(key,new Set());if(b.assessment!=='未設定')subjectForms.get(key).add(b.assessment);}for(const b of [...unassignedBlocks,...timetable.map(i=>i.block)]){const forms=subjectForms.get(assessmentKey(b));if(b.assessment==='未設定'&&forms.size===1)b.assessment=[...forms][0];}
- return {schemaVersion:7,catalog,mergeExceptions,unassignedBlocks,timetable,settings,rooms,rules,holidays,followups};
+ return {schemaVersion:8,catalog,mergeExceptions,unassignedBlocks,timetable,settings,rooms,rules,holidays,followups};
 }
 function matchesRule(rule,b){return rule.kind==='global'||rule.kind==='teacher'&&rule.target===b.teacher||rule.kind==='room'&&rule.target===b.room||rule.kind==='program'&&rule.target===b.program||rule.kind==='class'&&rule.target===cls(b);}
 const restrictions=(rules,b,day,slot)=>rules.filter(r=>matchesRule(r,b)&&r.cells.includes(day+':'+slot));
@@ -225,5 +244,5 @@ function suggestions(data,blockId,mode='balanced',weekends=false){
  }
  return out.sort((a,b)=>a.score-b.score||a.day-b.day||a.slot-b.slot).slice(0,8);
 }
-return {distribution,compareRooms,sortRoomNames,assessmentKey,subjectAssessments,setSubjectAssessment,isFOF,teachingWeeks,teachingPeriod,scheduleRows,defaults,slots,validate,conflicts,audit,fullAudit,slotLoad,roomPressure,pressure,stats,placement,suggestions,restrictions,holidayImpacts,parseHolidayCSV,parseICS,sameSubject,cls,session,minutes,clock,dateISO,weekday,round};
+return {catalogPlan,distribution,compareRooms,sortRoomNames,assessmentKey,subjectAssessments,setSubjectAssessment,isFOF,teachingWeeks,teachingPeriod,scheduleRows,defaults,slots,validate,conflicts,audit,fullAudit,slotLoad,roomPressure,pressure,stats,placement,suggestions,restrictions,holidayImpacts,parseHolidayCSV,parseICS,sameSubject,cls,session,minutes,clock,dateISO,weekday,round};
 });
