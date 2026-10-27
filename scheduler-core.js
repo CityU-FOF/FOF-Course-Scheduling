@@ -7,7 +7,7 @@ const text=x=>typeof x==='string'?x.trim():'';
 const round=n=>Math.round(n*100)/100;
 const cls=b=>JSON.stringify([b.program,b.grade,b.className]);
 const sameSubject=(a,b)=>text(a.subjectCode).toUpperCase()===text(b.subjectCode).toUpperCase()&&text(a.subject)===text(b.subject);
-const sameMergeSubject=(a,b)=>text(a.subjectCode)&&text(b.subjectCode)?text(a.subjectCode).toUpperCase()===text(b.subjectCode).toUpperCase():sameSubject(a,b);
+const sameMergeSubject=(a,b,exceptions=[])=>exceptions.some(r=>r.enabled&&r.codes.includes(text(a.subjectCode).toUpperCase())&&r.codes.includes(text(b.subjectCode).toUpperCase()))||(text(a.subjectCode)&&text(b.subjectCode)?text(a.subjectCode).toUpperCase()===text(b.subjectCode).toUpperCase():sameSubject(a,b));
 const session=i=>i.mergeId?JSON.stringify(['merge',i.day,i.slot,i.mergeId]):JSON.stringify(['block',i.block.id]);
 const clock=t=>{if(!/^\d\d:\d\d$/.test(t))throw Error('時間須為 HH:mm');const [h,m]=t.split(':').map(Number);if(h>24||m>59||(h===24&&m))throw Error('時間超出範圍');return h*60+m;};
 const minutes=s=>{const [a,b]=s.time.split('-').map(clock);return b-a;};
@@ -16,10 +16,16 @@ function dateISO(s){if(typeof s!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(s))retur
 const weekday=s=>new Date(s+'T00:00:00Z').getUTCDay()||7;
 const nextDate=s=>new Date(new Date(s+'T00:00:00Z').getTime()+86400000).toISOString().slice(0,10);
 const unique=(arr,name)=>{const ids=new Set();for(const a of arr){if(ids.has(a.id))throw Error(name+' ID重複');ids.add(a.id);}};
+const seedCatalog=[{code:'BAE406',name:'金融與經濟研究方法',directions:['金融學方向']},{code:'BAE411',name:'金融與經濟研究方法',directions:['經濟學方向']},{code:'BAE407',name:'實證方法與建模',directions:['金融學方向']},{code:'BAE412',name:'實證方法與建模',directions:['經濟學方向']}].map(c=>({...c,credits:null,courseType:'',faculty:'金融學院',terms:[],assessment:'未設定'}));
+const seedExceptions=[{id:'EX-BAE406-BAE411',codes:['BAE406','BAE411'],enabled:true,reason:'本學期特殊安排：金融學／經濟學方向，同教師同時段可確認併班'}];
 function validate(raw){
  if(!raw||!Array.isArray(raw.unassignedBlocks)||!Array.isArray(raw.timetable))throw Error('備份必須包含待排課池及課表陣列');
- if(raw.schemaVersion!==undefined&&![2,3,4,5,6].includes(raw.schemaVersion))throw Error('不支援此備份版本');
+ if(raw.schemaVersion!==undefined&&![2,3,4,5,6,7].includes(raw.schemaVersion))throw Error('不支援此備份版本');
  if(raw.unassignedBlocks.length+raw.timetable.length>10000)throw Error('課節上限為10000');
+ if(raw.catalog!==undefined&&!Array.isArray(raw.catalog)||raw.mergeExceptions!==undefined&&!Array.isArray(raw.mergeExceptions))throw Error('科目資料庫及併班例外必須為陣列');
+ const catalog=(raw.catalog===undefined?seedCatalog:raw.catalog).map(c=>{if(!c||!text(c.code)||!text(c.name)||text(c.code).length>50||text(c.name).length>300||!Array.isArray(c.terms)||c.terms.some(t=>!['上學期','下學期'].includes(t))||!Array.isArray(c.directions)||c.directions.some(t=>!['金融學方向','經濟學方向','未分方向'].includes(t))||c.credits!==null&&(!Number.isFinite(c.credits)||c.credits<0||c.credits>30)||!['','必修','選修'].includes(c.courseType)||!['未設定','開卷考試','閉卷考試','報告/論文'].includes(c.assessment)||typeof c.faculty!=='string'||c.faculty.length>100)throw Error('科目預設資料不正確');return {code:text(c.code).toUpperCase(),name:text(c.name),credits:c.credits,courseType:c.courseType,faculty:text(c.faculty),terms:[...new Set(c.terms)],directions:[...new Set(c.directions)],assessment:c.assessment};});
+ if(catalog.length>2000||new Set(catalog.map(c=>c.code)).size!==catalog.length)throw Error('科目編號重複或資料庫超過2000科');
+ const mergeExceptions=(raw.mergeExceptions===undefined?seedExceptions:raw.mergeExceptions).map(r=>{if(!r||!text(r.id)||!Array.isArray(r.codes)||r.codes.length!==2||r.codes.some(c=>!text(c)||text(c).length>50)||typeof r.enabled!=='boolean'||typeof r.reason!=='string'||r.reason.length>1000)throw Error('跨編號併班例外不正確');const codes=r.codes.map(c=>text(c).toUpperCase()).sort();if(codes[0]===codes[1])throw Error('跨編號併班必須選擇兩個不同編號');return {id:text(r.id),codes,enabled:r.enabled,reason:text(r.reason)};});unique(mergeExceptions,'併班例外');if(mergeExceptions.length>100||new Set(mergeExceptions.map(r=>r.codes.join('|'))).size!==mergeExceptions.length)throw Error('併班例外重複或超過100對');
  const ids=new Set();
  function block(b){
   if(!b||!['id','program','grade','className','subject','teacher'].every(k=>typeof b[k]==='string'&&b[k].trim()&&b[k].length<=300))throw Error('課節缺少有效ID、課程、年級、班級、科目或教師');
@@ -70,14 +76,14 @@ function validate(raw){
  if(holidays.length>2000||rules.length>1000||rooms.length>1000)throw Error('設定數量過多');
  const followups=Object.create(null);for(const [key,v] of Object.entries(raw.followups||{})){if(!v||!['pending','planned','exempt'].includes(v.status)||typeof v.note!=='string')throw Error('假期跟進資料不正確');followups[key]={status:v.status,note:v.note.slice(0,2000)};}
  const groups=new Map();timetable.filter(i=>i.mergeId).forEach(i=>{if(!groups.has(i.mergeId))groups.set(i.mergeId,[]);groups.get(i.mergeId).push(i);});
- for(const group of groups.values())if(group.some(i=>i.day!==group[0].day||i.slot!==group[0].slot||i.block.teacher!==group[0].block.teacher||!sameMergeSubject(i.block,group[0].block)||i.block.room!==group[0].block.room)||new Set(group.map(i=>cls(i.block))).size!==group.length)throw Error('合班必須同時段、同教師、同科目、同課室及不同班級');
+ for(const group of groups.values())if(group.some(i=>i.day!==group[0].day||i.slot!==group[0].slot||i.block.teacher!==group[0].block.teacher||!sameMergeSubject(i.block,group[0].block,mergeExceptions)||i.block.room!==group[0].block.room)||new Set(group.map(i=>cls(i.block))).size!==group.length||group.some((i,n)=>group.slice(n+1).some(j=>!sameMergeSubject(i.block,j.block,mergeExceptions))))throw Error('併班須同教師、同時段、共用課室及不同班級；跨編號須有啟用例外，停用例外前請先拆班');
  const subjectForms=new Map();for(const b of [...unassignedBlocks,...timetable.map(i=>i.block)]){const key=assessmentKey(b);if(!subjectForms.has(key))subjectForms.set(key,new Set());if(b.assessment!=='未設定')subjectForms.get(key).add(b.assessment);}for(const b of [...unassignedBlocks,...timetable.map(i=>i.block)]){const forms=subjectForms.get(assessmentKey(b));if(b.assessment==='未設定'&&forms.size===1)b.assessment=[...forms][0];}
- return {schemaVersion:6,unassignedBlocks,timetable,settings,rooms,rules,holidays,followups};
+ return {schemaVersion:7,catalog,mergeExceptions,unassignedBlocks,timetable,settings,rooms,rules,holidays,followups};
 }
 function matchesRule(rule,b){return rule.kind==='global'||rule.kind==='teacher'&&rule.target===b.teacher||rule.kind==='room'&&rule.target===b.room||rule.kind==='program'&&rule.target===b.program||rule.kind==='class'&&rule.target===cls(b);}
 const restrictions=(rules,b,day,slot)=>rules.filter(r=>matchesRule(r,b)&&r.cells.includes(day+':'+slot));
-function conflicts(a,b){if(a.day!==b.day||a.slot!==b.slot)return [];const out=[];const merge=a.mergeId&&a.mergeId===b.mergeId&&sameMergeSubject(a.block,b.block)&&a.block.teacher===b.block.teacher&&a.block.room===b.block.room;if(cls(a.block)===cls(b.block))out.push('班級撞堂');if(a.block.teacher===b.block.teacher&&!merge)out.push('教師撞堂');if(a.block.room&&a.block.room===b.block.room&&!merge)out.push('課室撞堂');return out;}
-function audit(timetable){const out=[];const groups=new Map();for(const i of timetable){const k=i.day+':'+i.slot;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(i);}for(const items of groups.values())for(let a=0;a<items.length;a++)for(let b=a+1;b<items.length;b++){const types=conflicts(items[a],items[b]);if(types.length)out.push({a:items[a],b:items[b],types});}return out;}
+function conflicts(a,b,exceptions=[]){if(a.day!==b.day||a.slot!==b.slot)return [];const out=[];const merge=a.mergeId&&a.mergeId===b.mergeId&&sameMergeSubject(a.block,b.block,exceptions)&&a.block.teacher===b.block.teacher&&a.block.room===b.block.room;if(cls(a.block)===cls(b.block))out.push('班級撞堂');if(a.block.teacher===b.block.teacher&&!merge)out.push('教師撞堂');if(a.block.room&&a.block.room===b.block.room&&!merge)out.push('課室撞堂');return out;}
+function audit(timetable,exceptions=[]){const out=[];const groups=new Map();for(const i of timetable){const k=i.day+':'+i.slot;if(!groups.has(k))groups.set(k,[]);groups.get(k).push(i);}for(const items of groups.values())for(let a=0;a<items.length;a++)for(let b=a+1;b<items.length;b++){const types=conflicts(items[a],items[b],exceptions);if(types.length)out.push({a:items[a],b:items[b],types});}return out;}
 
 // A subject code owns one assessment across programmes, years and classes.
 const assessmentKey=b=>text(b.subjectCode)?'code:'+text(b.subjectCode).toUpperCase():'name:'+JSON.stringify([b.program,text(b.subject)]);
@@ -87,6 +93,7 @@ function setSubjectAssessment(data,b,assessment){
  for(const x of [...data.unassignedBlocks,...data.timetable.map(i=>i.block)])if(assessmentKey(x)===assessmentKey(b)){
   if(x.locked&&x.assessment!==assessment)throw Error('同科目有鎖定課節，請先解鎖再統一考核形式');x.assessment=assessment;
  }
+ const c=data.catalog?.find(c=>c.code===text(b.subjectCode).toUpperCase());if(c)c.assessment=assessment;
 }
 
 const isFOF=b=>!b.faculty||['金融學院','FOF'].includes(b.faculty);
@@ -139,7 +146,7 @@ function placement(data,blockId,day,slot,options={}){
  const others=data.timetable.filter(i=>i!==original&&i.day===day&&i.slot===slot);
  if(others.some(i=>cls(i.block)===cls(b)))return fail('班級撞堂');
  const merge=others.filter(i=>i.block.teacher===b.teacher);
- if(merge.some(i=>!sameMergeSubject(i.block,b)))return fail('教師撞堂：同一時段已有不同科目');
+ if(merge.some(i=>!sameMergeSubject(i.block,b,data.mergeExceptions||[])))return fail('教師撞堂：同一時段已有不同科目');
  if(new Set(merge.map(i=>i.mergeId||i.block.id)).size>1)return fail('教師已有未解決衝突');
  if(merge.some(i=>i.block.locked))return fail('合班對象已鎖定，請先解鎖');
  const roomChoices=sortRoomNames([b.room,...merge.map(i=>i.block.room)]),explicit=Object.prototype.hasOwnProperty.call(options,'mergeRoom');
@@ -177,7 +184,7 @@ function holidayImpacts(data){
  }
  return [...map.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.item.slot-b.item.slot||a.item.block.className.localeCompare(b.item.block.className));
 }
-function fullAudit(data){const issues=audit(data.timetable).map(x=>({type:x.types.join('／'),item:x.a,detail:`${x.a.block.subject} ↔ ${x.b.block.subject}（${x.b.block.teacher}）`}));for(const i of data.timetable){const rs=restrictions(data.rules,i.block,i.day,i.slot);if(rs.length)issues.push({type:'排課限制',item:i,detail:rs.map(r=>r.reason||r.target||'全院禁排').join('；')});}for(let day=1;day<=7;day++)for(let slot=1;slot<=8;slot++)for(const r of roomPressure(data,day,slot).filter(r=>r.over))issues.push({type:'課室超容量',item:data.timetable.find(i=>i.day===day&&i.slot===slot&&i.block.room===r.name),detail:`${r.name} 已知人數${r.seats} / ${r.capacity}${r.unknown?'（另有人數未填）':''}`});return issues;}
+function fullAudit(data){const issues=audit(data.timetable,data.mergeExceptions).map(x=>({type:x.types.join('／'),item:x.a,detail:`${x.a.block.subject} ↔ ${x.b.block.subject}（${x.b.block.teacher}）`}));for(const i of data.timetable){const rs=restrictions(data.rules,i.block,i.day,i.slot);if(rs.length)issues.push({type:'排課限制',item:i,detail:rs.map(r=>r.reason||r.target||'全院禁排').join('；')});}for(let day=1;day<=7;day++)for(let slot=1;slot<=8;slot++)for(const r of roomPressure(data,day,slot).filter(r=>r.over))issues.push({type:'課室超容量',item:data.timetable.find(i=>i.day===day&&i.slot===slot&&i.block.room===r.name),detail:`${r.name} 已知人數${r.seats} / ${r.capacity}${r.unknown?'（另有人數未填）':''}`});return issues;}
 function parseCSV(input){const rows=[];let row=[],cell='',quoted=false;input=input.replace(/^\uFEFF/,'');for(let i=0;i<input.length;i++){const c=input[i];if(c==='"'){if(quoted&&input[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}else if(!quoted&&(c===','||c==='\n'||c==='\r')){row.push(cell);cell='';if(c!==','){if(c==='\r'&&input[i+1]==='\n')i++;if(row.some(x=>x.trim()))rows.push(row);row=[];}}else cell+=c;}if(quoted)throw Error('CSV引號未關閉');row.push(cell);if(row.some(x=>x.trim()))rows.push(row);return rows;}
 function parseHolidayCSV(input,csv){const parsed=csv?csv.parse(input.replace(/^\uFEFF/,''),{skipEmptyLines:'greedy',dynamicTyping:false}):null;if(parsed?.errors.length)throw Error('CSV格式錯誤：'+parsed.errors[0].message);const rows=parsed?parsed.data:parseCSV(input);if(!rows.length)throw Error('CSV沒有資料');const head=rows.shift().map(s=>s.trim().toLowerCase());if(new Set(head).size!==head.length)throw Error('CSV欄名不能重複');if(!rows.length)throw Error('CSV沒有假期資料');if(rows.some(r=>r.length!==head.length))throw Error('CSV每列欄位數須與標題一致');const col=(name,r)=>r[head.indexOf(name)]?.trim()||'';if(!head.includes('date')||!head.includes('name'))throw Error('CSV須包含 date,name 欄位');return rows.map((r,n)=>({id:'csv-'+n+'-'+col('date',r),date:col('date',r),endDate:col('end_date',r)||col('date',r),name:col('name',r),start:col('start',r)?clock(col('start',r)):0,end:col('end',r)?clock(col('end',r)):1440,enabled:!['false','0'].includes(col('enabled',r).toLowerCase()),source:'CSV匯入'}));}
 function parseICS(input){

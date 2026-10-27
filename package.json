@@ -1,7 +1,7 @@
 {
   "name": "fof-course-scheduling",
   "private": true,
-  "version": "3.6.0",
+  "version": "3.7.0",
   "scripts": {
     "test": "node --test tests/core.test.cjs tests/components.test.cjs tests/enrolment.test.cjs && node tests/integration.cjs"
   },

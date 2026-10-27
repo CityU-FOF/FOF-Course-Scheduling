@@ -100,3 +100,5 @@
  .pool{height:max(860px,calc(100dvh - 32px));min-height:860px}.pool .pool-scroll{min-height:540px;overscroll-behavior:contain;scrollbar-gutter:stable}.pool-help{padding:10px 17px;margin:0}.pool-help summary{cursor:pointer;color:#476b50}.pool-help p{margin:8px 0}.merge-classes{padding-left:22px;max-height:180px;overflow:auto}.merge-classes li{padding:5px 0}
  @media(max-width:850px){.pool{height:760px;min-height:760px}.pool .pool-scroll{display:block;min-height:430px}.pool .pool-scroll>.course-card{min-width:0}}
 }
+
+@media screen{.catalog-picker{grid-column:span 2}.dialog fieldset{border:1px solid #d5e3d1;border-radius:8px;margin:16px 0;padding:10px 15px}.dialog legend{font-size:15px;color:#3b6544}.dialog fieldset .checkbox-label{display:inline-flex!important;margin-right:14px!important}}
