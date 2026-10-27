@@ -10,7 +10,7 @@ test('catalogue ownership is inferred from exact known prefixes and supports mul
 });
 
 test('old single-term backup gains a baseline offering plan without inventing year or moving lessons',()=>{
- const b=base('old'),d=C.validate({schemaVersion:8,unassignedBlocks:[b],timetable:[]});assert.equal(d.schemaVersion,9);assert.equal(d.termInfo.academicYear,'');assert.equal(d.termInfo.semester,'未設定');assert.deepEqual(d.archives,[]);assert.deepEqual(C.annualWorkload(d,'').rows,[]);assert.equal(d.offeringPlan.length,1);assert.equal(d.offeringPlan[0].targets[0].lessons,1);assert.equal(d.unassignedBlocks[0].id,'old');assert.equal(C.offeringProgress(d).openedPercent,100);assert.deepEqual(C.validate(JSON.parse(JSON.stringify(d))),d);
+ const b=base('old'),d=C.validate({schemaVersion:8,unassignedBlocks:[b],timetable:[]});assert.equal(d.schemaVersion,10);assert.equal(d.termInfo.academicYear,'');assert.equal(d.termInfo.semester,'未設定');assert.deepEqual(d.archives,[]);assert.deepEqual(C.annualWorkload(d,'').rows,[]);assert.equal(d.offeringPlan.length,1);assert.equal(d.offeringPlan[0].targets[0].lessons,1);assert.equal(d.unassignedBlocks[0].id,'old');assert.equal(C.offeringProgress(d).openedPercent,100);assert.deepEqual(C.validate(JSON.parse(JSON.stringify(d))),d);
 });
 
 test('opening completion requires all target classes and lessons; spare lessons cannot cover another missing class',()=>{
@@ -20,12 +20,12 @@ test('opening completion requires all target classes and lessons; spare lessons 
 
 test('creating and switching semesters retains complete independent snapshots and does not copy term exceptions',()=>{
  let upper=term('2026/2027','上學期',2,{extra:{rooms:[{name:'G1',capacity:30}],holidays:[{id:'h',date:'2026-09-01',name:'假期'}],rules:[{id:'r',kind:'teacher',target:'其他教師',cells:['1:1'],reason:'上學期限制'}]}});const before=C.termSnapshot(upper);let lower=C.createTerm(upper,{id:'lower',academicYear:'2026/2027',semester:'下學期'},C.defaults);assert.equal(upper.archives.length,0);assert.deepEqual(lower.archives[0],before);assert.equal(lower.timetable.length,0);assert.equal(lower.rooms.length,1);assert.deepEqual(lower.holidays,[]);assert.deepEqual(lower.rules,[]);assert.deepEqual(lower.mergeExceptions,[]);
- lower.holidays.push({id:'new',date:'2027-03-01',name:'新假期',endDate:'2027-03-01',start:0,end:1440,enabled:true,source:''});const switched=C.switchTerm(lower,upper.termInfo.id);assert.deepEqual(C.termSnapshot(switched),before);assert.equal(switched.archives[0].holidays[0].name,'新假期');assert.equal(C.switchTerm(switched,'lower').holidays[0].id,'new');assert.deepEqual(C.validate(JSON.parse(JSON.stringify(switched))),switched);
+ lower.settings.startDate='2027-02-01';lower.settings.endDate='2027-06-30';lower.holidayCalendar.push({id:'new',date:'2027-03-01',name:'新假期',endDate:'2027-03-01',start:0,end:1440,enabled:true,source:''});const switched=C.switchTerm(lower,upper.termInfo.id);assert.deepEqual(C.termSnapshot(switched),before);assert.equal(switched.archives[0].holidays[0].name,'新假期');assert.equal(C.switchTerm(switched,'lower').holidays[0].id,'new');assert.deepEqual(C.validate(JSON.parse(JSON.stringify(switched))),switched);
 });
 
 test('duplicate semester identity, nested archives, invalid plans and future backup versions reject atomically',()=>{
  const d=term('2026/2027','上學期',0),before=JSON.stringify(d);assert.throws(()=>C.createTerm(d,{id:'x',academicYear:'2026/2027',semester:'上學期'},C.defaults),/已存在/);assert.equal(JSON.stringify(d),before);
- const snap=C.termSnapshot(term('2026/2027','下學期',0));for(const bad of [{...snap,archives:[]},{...snap,termInfo:{...snap.termInfo,id:d.termInfo.id}},{...snap,offeringPlan:[{id:'broken'}]}])assert.throws(()=>C.validate({...d,archives:[bad]}));assert.throws(()=>C.validate({...d,schemaVersion:10}),/不支援/);assert.throws(()=>C.validate({...d,termInfo:{...d.termInfo,academicYear:'2026/2028'}}),/學期/);
+ const snap=C.termSnapshot(term('2026/2027','下學期',0));for(const bad of [{...snap,archives:[]},{...snap,termInfo:{...snap.termInfo,id:d.termInfo.id}},{...snap,offeringPlan:[{id:'broken'}]}])assert.throws(()=>C.validate({...d,archives:[bad]}));assert.throws(()=>C.validate({...d,schemaVersion:11}),/不支援/);assert.throws(()=>C.validate({...d,termInfo:{...d.termInfo,academicYear:'2026/2028'}}),/學期/);
 });
 
 test('annual workload separates scheduled and pending allocation: 225 plus 135 reaches 360',()=>{

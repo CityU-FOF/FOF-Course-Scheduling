@@ -1,9 +1,9 @@
 {
   "name": "fof-course-scheduling",
   "private": true,
-  "version": "4.0.0",
+  "version": "4.1.0",
   "scripts": {
-    "test": "node --test tests/core.test.cjs tests/components.test.cjs tests/enrolment.test.cjs tests/workspace.test.cjs tests/storage.test.cjs && node tests/integration.cjs && node tests/workspace-integration.cjs && node tests/storage-integration.cjs"
+    "test": "node --test tests/core.test.cjs tests/components.test.cjs tests/enrolment.test.cjs tests/workspace.test.cjs tests/storage.test.cjs tests/shared-calendar.test.cjs && node tests/integration.cjs && node tests/workspace-integration.cjs && node tests/storage-integration.cjs && node tests/workflow-integration.cjs"
   },
   "devDependencies": {
     "fake-indexeddb": "6.2.6",

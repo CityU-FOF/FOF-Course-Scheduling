@@ -24,7 +24,7 @@ test('missing base, missing/invalid counts, mismatched cross timetable and mixed
  assert.throws(()=>E.aggregate([row(),row({'科目總碼':'262BAECF1BBAE10500'})]),/多個學期/);
 });
 test('a real zero is known, counted and survives backup roundtrip',()=>{
- const d=state({unassignedBlocks:[b('a')]}),r=E.review(E.aggregate([row({'正選人數':0})]),d);E.apply(d,r,options);const clean=C.validate(JSON.parse(JSON.stringify(d)));assert.equal(clean.unassignedBlocks[0].headcount,0);assert.equal(clean.unassignedBlocks[0].enrolment.base,0);assert.equal(clean.schemaVersion,9);
+ const d=state({unassignedBlocks:[b('a')]}),r=E.review(E.aggregate([row({'正選人數':0})]),d);E.apply(d,r,options);const clean=C.validate(JSON.parse(JSON.stringify(d)));assert.equal(clean.unassignedBlocks[0].headcount,0);assert.equal(clean.unassignedBlocks[0].enrolment.base,0);assert.equal(clean.schemaVersion,10);
 });
 test('multiple rooms require explicit cell mapping, never infer list order or duplicate capacity',()=>{
  const d=state({timetable:[{day:1,slot:1,block:b('a',{room:'OLD1'})},{day:2,slot:1,block:b('b',{room:'OLD2'})}],unassignedBlocks:[b('c',{room:'LAB'})]});const parsed=E.aggregate([row({'教室節次館別':'G2106課室Classroom,G2107課室Classroom 星期一 01/09:00-10:15 ;星期二 01/09:00-10:15 ;'})]);const r=E.review(parsed,d);assert.equal(r.capacities.length,0);assert.ok(r.groups[0].assignments.every(c=>!c.room));r.groups[0].assignments[0].room='G2106';E.apply(d,r,options);assert.equal(d.timetable[0].block.room,'G2106');assert.equal(d.timetable[1].block.room,'OLD2');assert.equal(d.unassignedBlocks[0].room,'LAB');assert.equal(d.timetable[0].day,1);assert.equal(d.timetable[0].slot,1);

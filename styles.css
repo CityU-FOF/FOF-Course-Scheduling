@@ -110,3 +110,9 @@
 }
 
 @media screen{.batch-dialog .dialog-actions{position:sticky;bottom:-26px;z-index:5;background:white;box-shadow:0 -8px 14px white;padding-bottom:8px}.batch-dialog .dialog-actions:before{content:'';position:absolute;left:-26px;right:-26px;top:0;bottom:0;background:white;z-index:-1}}
+
+/* Four workflow stages, with local tabs instead of a long list of separate screens. */
+@media screen{
+ .section-tabs{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:9px;background:#eaf4e9;border:1px solid #d5e4d2;border-radius:12px;margin:0 0 20px;position:sticky;top:10px;z-index:15}.section-tabs button{font:inherit;font-weight:600;border:0;border-radius:8px;background:transparent;color:#476b50;padding:11px 20px;min-height:44px}.section-tabs button.active{background:#fff;color:#116140;box-shadow:0 2px 7px #1b63351a}.utility-menu{position:relative;margin:0;font:inherit}.utility-menu>summary{list-style:none;color:#245b3c}.utility-menu>summary::-webkit-details-marker{display:none}.utility-actions{position:absolute;top:calc(100% + 9px);right:0;z-index:50;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:295px;padding:16px;background:white;border:1px solid #d3e5d3;border-radius:12px;box-shadow:0 14px 40px #173e2826}.utility-actions .btn{text-align:center;white-space:nowrap}.topbar .toolbar{align-items:center}.holiday-tools details p{max-width:550px}.section-tabs button:focus-visible,.utility-menu summary:focus-visible{outline:3px solid #c6a24e;outline-offset:2px}
+ @media(max-width:850px){.section-tabs{top:0;padding:5px;gap:3px}.section-tabs button{padding:9px 12px}.utility-actions{right:auto;left:0}}
+}
