@@ -102,3 +102,11 @@
 }
 
 @media screen{.catalog-picker{grid-column:span 2}.dialog fieldset{border:1px solid #d5e3d1;border-radius:8px;margin:16px 0;padding:10px 15px}.dialog legend{font-size:15px;color:#3b6544}.dialog fieldset .checkbox-label{display:inline-flex!important;margin-right:14px!important}}
+
+/* Multi-semester workspace and offering progress. */
+@media screen{
+ .term-switch{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}.term-switch select{max-width:min(440px,72vw);font-size:15px;padding:8px 12px;background:#f4faf4;border:1px solid #bcd8bd;border-radius:8px;color:#245c40}.action-group{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}.offering-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:0 24px 20px}.offering-metrics>div{background:linear-gradient(125deg,#edf9f1,#fffdf5);padding:18px;border:1px solid #d3e9d8;border-radius:12px}.offering-metrics small{color:#446e54;display:block}.offering-metrics strong{display:block;color:#166344;font-size:30px;margin-top:8px}.offering-metrics em{font-size:17px;font-style:normal;color:#52705a}.number-inline{width:95px;padding:7px 10px;margin:0 5px}.annual-table table{min-width:1000px}.annual-table td{vertical-align:top}.annual-table small{line-height:1.7}.navigation nav{min-height:0;overflow-y:auto}.dialog .list-scroll{max-height:42vh;overflow:auto}.dialog .list-scroll thead{position:sticky;top:0;background:#f2f8f0;z-index:1}
+ @media(max-width:850px){.offering-metrics{grid-template-columns:1fr;padding:0 15px 15px}.section-head{flex-wrap:wrap}.action-group{justify-content:flex-start}.navigation nav{overflow-x:auto;overflow-y:hidden}}
+}
+
+@media screen{.batch-dialog .dialog-actions{position:sticky;bottom:-26px;z-index:5;background:white;box-shadow:0 -8px 14px white;padding-bottom:8px}.batch-dialog .dialog-actions:before{content:'';position:absolute;left:-26px;right:-26px;top:0;bottom:0;background:white;z-index:-1}}

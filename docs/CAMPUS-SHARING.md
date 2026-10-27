@@ -13,7 +13,7 @@ https://learn.microsoft.com/en-us/sharepoint/sites/onedrive-for-business-overvie
 
 ## 現在可以用Share Drive做甚麼
 
-v3仍是離線網頁。程式檔可放校內Share Drive分發，JSON備份也可存放在IT確認的校內Share Drive。網頁的工作資料仍在各自瀏覽器；**直接打開同一份HTML，不會自動讀寫同一課表。**
+v4仍是離線網頁，以本機IndexedDB（支援時）或瀏覽器儲存保留多學期資料。程式檔可放校內Share Drive分發，JSON備份也可存放在IT確認的校內Share Drive。網頁的工作資料仍在各自瀏覽器；**直接打開同一份HTML，不會自動讀寫同一課表。**
 
 多人暫時協作時，指定一位主編排者，將帶日期版本的JSON作主檔，其他人查看或提供建議，再由主編排者整理。不要多人同時覆寫同名JSON；OneDrive同步也不能為排課網頁提供資料庫交易、版本衝突檢查或教師撞堂鎖定。
 

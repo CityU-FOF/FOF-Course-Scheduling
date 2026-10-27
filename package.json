@@ -1,11 +1,12 @@
 {
   "name": "fof-course-scheduling",
   "private": true,
-  "version": "3.8.2",
+  "version": "4.0.0",
   "scripts": {
-    "test": "node --test tests/core.test.cjs tests/components.test.cjs tests/enrolment.test.cjs && node tests/integration.cjs"
+    "test": "node --test tests/core.test.cjs tests/components.test.cjs tests/enrolment.test.cjs tests/workspace.test.cjs tests/storage.test.cjs && node tests/integration.cjs && node tests/workspace-integration.cjs && node tests/storage-integration.cjs"
   },
   "devDependencies": {
+    "fake-indexeddb": "6.2.6",
     "jsdom": "26.1.0"
   }
 }
