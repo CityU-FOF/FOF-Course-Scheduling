@@ -21,17 +21,19 @@ const catalogRows=[
  ['BAE101','微積分導論','上學期'],['BAE103','微觀經濟學導論','上學期'],['BAE105','會計學導論I','上學期'],
  ['BAE202','量化分析','上學期'],['BAE203','中級微觀經濟學','上學期'],['BAE205','金融學原理','上學期'],['BAE208','管理學原理','上學期'],
  ['BAE301','計量經濟學導論','上學期'],['BAE303','金融經濟學導論','上學期'],['BAE305','公司金融','上學期','金融學方向'],['BAE307','投資學','上學期','金融學方向'],['BAE309','勞動經濟學','上學期','經濟學方向'],['BAE310','產業經濟學','上學期','經濟學方向'],
- ['BAE401','學術專題項目I','上學期'],['BAE404','研究報告I','上學期'],['BAE406','金融與經濟研究方法','上學期','金融學方向'],['BAE411','金融與經濟研究方法','上學期','經濟學方向'],['BAE407','實證方法與建模','上學期','金融學方向'],['BAE412','實證方法與建模','上學期','待確認'],['BAE409','風險管理簡介','上學期','金融學方向'],['BAE413','經濟思想史','上學期','經濟學方向'],
+ ['BAE401','學術專題項目I','上學期'],['BAE404','研究報告I','上學期'],['BAE406','金融與經濟研究方法','上學期','金融學方向'],['BAE411','金融與經濟研究方法','上學期','經濟學方向'],['BAE407','實證方法與建模','上學期','金融學方向'],['BAE412','實證方法與建模','上學期','經濟學方向'],['BAE409','風險管理簡介','上學期','金融學方向'],['BAE413','經濟思想史','上學期','經濟學方向'],
  ['BAE102','線性代數導論','下學期'],['BAE104','宏觀經濟學導論','下學期'],['BAE106','會計學導論II','下學期'],['BAE201','企業數學與統計學','下學期'],['BAE204','中級宏觀經濟學','下學期'],['BAE206','金融市場簡介','下學期'],['BAE207','財務管理','下學期'],
  ['BAE302','時間序列分析','下學期'],['BAE304','國際金融','下學期'],['BAE306','衍生品證券','下學期','金融學方向'],['BAE308','固定收益證券','下學期','金融學方向'],['BAE311','發展經濟學','下學期','經濟學方向'],['BAE312','國際貿易','下學期','經濟學方向'],
  ['BAE402','學術專題項目II','下學期'],['BAE403','金融機構管理','下學期'],['BAE405','研究報告II','下學期'],['BAE408','金融前沿專題','下學期','金融學方向'],['BAE410','兼併與收購簡介','下學期','金融學方向'],['BAE414','當代中國經濟','下學期','經濟學方向'],['BAE415','博弈論導論','下學期','經濟學方向']
 ];
-const seedCatalog=catalogRows.map(([code,name,term,direction])=>{const year=Number(code[3]);return {code,name,credits:3,courseType:direction?'選修':'必修',faculty:'金融學院',terms:[term],grades:[['','大一','大二','大三','大四'][year]],directions:direction==='待確認'?[]:direction?[direction]:year<3?['未分方向']:['金融學方向','經濟學方向'],assessment:'未設定',notes:code==='BAE412'?'方向待確認：最新清單標為金融學，先前說明為經濟學；舊資料方向保留，請確認後編輯。':''};});
-// Add missing codes and fill only blank defaults. Never rewrite lessons or custom defaults.
+const seedCatalog=catalogRows.map(([code,name,term,direction])=>{const year=Number(code[3]);return {code,name,credits:3,courseType:direction?'選修':'必修',faculty:'金融學院',terms:[term],grades:[['','大一','大二','大三','大四'][year]],directions:direction?[direction]:year<3?['未分方向']:['金融學方向','經濟學方向'],assessment:'未設定',notes:''};});
+// Fill blank defaults; also retire the exact v3.8 pending marker after faculty confirmation.
+// Lessons and unrelated custom defaults are never rewritten.
+const legacyBAE412Note='方向待確認：最新清單標為金融學，先前說明為經濟學；舊資料方向保留，請確認後編輯。';
 function catalogPlan(catalog){
  const out=JSON.parse(JSON.stringify(catalog)),changes=[],preserved=[];
  for(const seed of seedCatalog){const c=out.find(c=>c.code===seed.code);if(!c){out.push(JSON.parse(JSON.stringify(seed)));changes.push({code:seed.code,name:seed.name,fields:['新增科目']});continue;}
-  const fields=[];for(const [key,label] of [['name','名稱'],['credits','學分'],['courseType','性質'],['faculty','單位'],['terms','學期'],['grades','年級'],['directions','方向'],['notes','備註']]){const empty=v=>v===undefined||v===null||v===''||Array.isArray(v)&&!v.length;if(empty(c[key])&&!empty(seed[key])){c[key]=JSON.parse(JSON.stringify(seed[key]));fields.push(label);}else if(!empty(seed[key])&&!empty(c[key])&&JSON.stringify(c[key])!==JSON.stringify(seed[key]))preserved.push({code:seed.code,field:label,value:Array.isArray(c[key])?c[key].join('、'):String(c[key])});}
+  const fields=[];if(c.code==='BAE412'&&c.notes===legacyBAE412Note){c.notes='';fields.push('移除舊版待確認備註');if(JSON.stringify(c.directions)!==JSON.stringify(seed.directions)){c.directions=[...seed.directions];fields.push('已確認經濟學方向');}}for(const [key,label] of [['name','名稱'],['credits','學分'],['courseType','性質'],['faculty','單位'],['terms','學期'],['grades','年級'],['directions','方向'],['notes','備註']]){const empty=v=>v===undefined||v===null||v===''||Array.isArray(v)&&!v.length;if(empty(c[key])&&!empty(seed[key])){c[key]=JSON.parse(JSON.stringify(seed[key]));fields.push(label);}else if(!empty(seed[key])&&!empty(c[key])&&JSON.stringify(c[key])!==JSON.stringify(seed[key]))preserved.push({code:seed.code,field:label,value:Array.isArray(c[key])?c[key].join('、'):String(c[key])});}
   if(fields.length)changes.push({code:seed.code,name:c.name,fields});
  }
  return {catalog:out,changes,preserved};
