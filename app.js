@@ -8,7 +8,7 @@ const FOFApp={setup(){
  const pendingMerge=ref(null);const data=reactive(initial),tab=ref('board'),view=ref('class'),selected=ref(''),search=ref(''),poolProgram=ref(''),classKey=ref(''),teacher=ref(''),roomView=ref(''),modal=ref(''),draft=ref({}),history=ref([]),future=ref([]),printKeys=ref([]),printPages=ref([]),holidayPreview=ref([]),holidayYear=ref(2027),impactStatus=ref('all'),pressureDay=ref(1),pressureSlot=ref(1);
  let largePreference=false;try{largePreference=localStorage.getItem('fof_large_text')==='1';}catch(e){}
  const largeText=ref(largePreference);function toggleLargeText(){largeText.value=!largeText.value;try{localStorage.setItem('fof_large_text',largeText.value?'1':'0');}catch(e){}}
- const programs=['應用經濟學學士學位課程','金融學碩士學位課程','金融科技碩士學位課程','金融學博士學位課程'];
+ const programs=C.programmes.map(p=>p.name);
   const nav=[{id:'board',label:'排課工作台',sub:'班級與教師課表'},{id:'pressure',label:'時段分佈與容量',sub:'集中程度與座位需求'},{id:'stats',label:'教學時數',sub:'按班累加核算'},{id:'subjects',label:'科目資料庫',sub:'科目預設與併班例外'},{id:'rules',label:'排課限制',sub:'教師與禁排時段'},{id:'rooms',label:'教室資料',sub:'容量與班級人數'},{id:'holidays',label:'假期與補課',sub:'日期檢查與跟進'}];
  const days=['星期一','星期二','星期三','星期四','星期五','星期六','星期日'];
  watch(modal,(v,old)=>{if(v&&v!==old)notice.value='';},{flush:'sync'});
@@ -115,7 +115,7 @@ const FOFApp={setup(){
  function setPressureMode(mode){pressureMode.value=mode;if(mode==='distribution'&&!includeSunday.value&&pressureDay.value===7)pressureDay.value=1;}
  function selectPressure(day,slot){pressureDay.value=day;pressureSlot.value=slot;}
  function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
- function exportData(){download('FOF排課v3.8.1_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({...JSON.parse(snapshot()),exportedAt:new Date().toISOString()},null,2),'application/json');}
+ function exportData(){download('FOF排課v3.8.2_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({...JSON.parse(snapshot()),exportedAt:new Date().toISOString()},null,2),'application/json');}
  async function importData(event){const file=event.target.files[0];if(!file)return;try{if(file.size>10*1024*1024)throw Error('檔案超過10MB');const incoming=C.validate(JSON.parse(await file.text()));if(!confirm(`匯入${incoming.timetable.length}個已排及${incoming.unassignedBlocks.length}個待排課節，將取代目前資料。繼續？`))return;if(mutate(d=>Object.assign(d,incoming)))notify('已匯入；請核對考核形式、開課學院、學期日期及檢查清單');}catch(e){notify('未能匯入：'+e.message);}finally{event.target.value='';}}
  function builtinHolidays(){const year=Number(holidayYear.value);holidayPreview.value=FOFHolidayData[year].map(([date,name])=>({id:'MO-'+year+'-'+date,date:year+'-'+date,endDate:year+'-'+date,name,start:0,end:1440,enabled:true,source:`澳門政府公眾假期${year}（2026-10-21核對）`}));modal.value='holidayPreview';}
  async function importHolidays(event){const file=event.target.files[0];if(!file)return;try{if(file.size>2*1024*1024)throw Error('檔案超過2MB');const input=await file.text();const rows=file.name.toLowerCase().endsWith('.ics')?C.parseICS(input):C.parseHolidayCSV(input,Papa);holidayPreview.value=C.validate({...JSON.parse(snapshot()),holidays:rows}).holidays;modal.value='holidayPreview';}catch(e){notify('假期未匯入：'+e.message);}finally{event.target.value='';}}
@@ -144,7 +144,7 @@ const FOFApp={setup(){
   add('假期撞課跟進',impacts.value.map(r=>({'日期':r.date,'假期':r.names.join('／'),...detail(r.item),'狀態':statusLabel(r.status),'補課跟進備註':r.note})));
   add('假期清單',data.holidays.map(h=>({'開始日期':h.date,'結束日期':h.endDate||h.date,'名稱':h.name,'開始':formatMinute(h.start),'結束':formatMinute(h.end),'啟用':h.enabled?'是':'否','來源':h.source})));
   add('科目預設',catalogEntries.value.map(c=>({'科目編號':c.code,'科目名稱':c.name,'預設學分':c.credits??'待設定','預設性質':c.courseType||'待設定','年級':c.grades?.join('、')||'待補','備註':c.notes||'','方向':c.directions.join('、')||'待補','開課學期':c.terms.join('、')||'待補','開課單位':c.faculty,'預設考核':c.assessment})));add('併班例外',data.mergeExceptions.map(r=>({'科目一':r.codes[0],'科目二':r.codes[1],'啟用':r.enabled?'是':'否','理由':r.reason})));
-  add('設定',[data.settings]);XLSX.writeFile(wb,'FOF排課及容量假期報表.xlsx');
+  add('課程代碼',C.programmes.map(p=>({'課程':p.name,'英文全稱':p.englishName,'簡寫':p.shortCode,'既有系統代碼':p.code,'可識別別名':p.aliases.join('／')})));add('設定',[data.settings]);XLSX.writeFile(wb,'FOF排課及容量假期報表.xlsx');
  }
  async function importEnrolment(event){const file=event.target.files[0];if(!file)return;try{if(file.size>10*1024*1024)throw Error('選科檔案超過10MB');const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});const parsed=EI.parseWorkbook(wb,XLSX);enrolmentReview.value=EI.review(parsed,data);enrolmentFilter.value='all';enrolmentOptions.value={counts:true,rooms:true,capacities:true,confirmStage:false,termConfirmed:false};enrolmentSnapshot=snapshot();modal.value='enrolment';}catch(e){notify('選科表未匯入：'+e.message);}finally{event.target.value='';}}
  function applyEnrolment(){if(!enrolmentOptions.value.termConfirmed){notify('請先確認選科表與目前學期相同');return;}if(snapshot()!==enrolmentSnapshot){notify('預覽後排課資料已改變，請重新匯入以核對');return;}let result;if(mutate(d=>{result=EI.apply(d,JSON.parse(JSON.stringify(enrolmentReview.value)),enrolmentOptions.value);})){modal.value='';enrolmentReview.value=null;notify(`已更新${result.groups}個科目班級、${result.blocks}個課節，人數為取代更新；沒有移動上課時間。請查看排課檢查及容量壓力。`);}}

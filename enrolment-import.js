@@ -1,7 +1,7 @@
 /* Local enrolment export reader. Never uploads files or changes timetable positions. */
 (function(root,factory){const api=factory(typeof module==='object'?require('./scheduler-core.js'):root.FOFCore);if(typeof module==='object')module.exports=api;else root.FOFEnrolment=api;})(typeof globalThis!=='undefined'?globalThis:this,C=>{
 'use strict';
-const programmes={BAECF:'應用經濟學學士學位課程',MFICF:'金融學碩士學位課程',MFTBF:'金融科技碩士學位課程',DFICF:'金融學博士學位課程'};
+const programmes=Object.fromEntries(C.programmes.map(p=>[p.code,p.name]));
 const crossSubjects=['BAE101','BAE102','BAE103','BAE104','BAE105','BAE106','BAE201','BAE205','BAE206','BAE207'];
 const str=x=>String(x??'').trim(),norm=x=>str(x).normalize('NFKC').replace(/\s/g,'').toUpperCase();
 const roomName=x=>norm(x).replace(/^GDC-/,'');

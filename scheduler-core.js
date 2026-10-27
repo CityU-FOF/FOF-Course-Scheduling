@@ -1,6 +1,14 @@
 /* FOF Scheduler v3 domain rules. No browser or network dependency. */
 (function(root,factory){const api=factory();if(typeof module==='object')module.exports=api;else root.FOFCore=api;})(typeof globalThis!=='undefined'?globalThis:this,()=>{
 'use strict';
+// Faculty-confirmed abbreviations and English names; canonical codes keep existing exports stable.
+const programmes=[
+ {code:'BAECF',shortCode:'BAE',aliases:['BAE','BAECF'],name:'應用經濟學學士學位課程',label:'應用經濟學學士',englishName:'Bachelor of Applied Economics'},
+ {code:'MFICF',shortCode:'MFI',aliases:['MFI','MFICF'],name:'金融學碩士學位課程',label:'金融學碩士',englishName:'Master of Finance'},
+ {code:'MFTBF',shortCode:'MFT',aliases:['MFT','MFTBF'],name:'金融科技碩士學位課程',label:'金融科技碩士',englishName:'Master of FinTech'},
+ {code:'DFICF',shortCode:'DFI',aliases:['DFI','DFICF'],name:'金融學博士學位課程',label:'金融學博士',englishName:'Doctor of Finance'}
+];
+function programmeInfo(value){const key=typeof value==='string'?value.trim().replace(/\s+/g,' ').toUpperCase():'';return programmes.find(p=>[p.name,p.label,p.englishName,...p.aliases].some(v=>v.toUpperCase()===key))||null;}
 const defaults={weeks:15,academicMinutes:50,capacity:10,stage:'planning',semesterName:'未命名學期',startDate:'',endDate:''};
 const slots=[{num:1,time:'09:00-10:15'},{num:2,time:'10:30-11:45'},{num:3,time:'12:00-13:15'},{num:4,time:'13:30-14:45'},{num:5,time:'15:00-16:15'},{num:6,time:'16:30-17:45'},{num:7,time:'19:00-20:15'},{num:8,time:'20:30-21:45'}];
 const text=x=>typeof x==='string'?x.trim():'';
@@ -246,5 +254,5 @@ function suggestions(data,blockId,mode='balanced',weekends=false){
  }
  return out.sort((a,b)=>a.score-b.score||a.day-b.day||a.slot-b.slot).slice(0,8);
 }
-return {catalogPlan,distribution,compareRooms,sortRoomNames,assessmentKey,subjectAssessments,setSubjectAssessment,isFOF,teachingWeeks,teachingPeriod,scheduleRows,defaults,slots,validate,conflicts,audit,fullAudit,slotLoad,roomPressure,pressure,stats,placement,suggestions,restrictions,holidayImpacts,parseHolidayCSV,parseICS,sameSubject,cls,session,minutes,clock,dateISO,weekday,round};
+return {programmes,programmeInfo,catalogPlan,distribution,compareRooms,sortRoomNames,assessmentKey,subjectAssessments,setSubjectAssessment,isFOF,teachingWeeks,teachingPeriod,scheduleRows,defaults,slots,validate,conflicts,audit,fullAudit,slotLoad,roomPressure,pressure,stats,placement,suggestions,restrictions,holidayImpacts,parseHolidayCSV,parseICS,sameSubject,cls,session,minutes,clock,dateISO,weekday,round};
 });

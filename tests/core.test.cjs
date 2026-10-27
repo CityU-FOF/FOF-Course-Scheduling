@@ -136,3 +136,9 @@ test('confirmed BAE412 direction replaces only the known pending marker and pres
  for(const directions of [[],['金融學方向'],['經濟學方向']]){const old=[{...base,directions,notes:pending,credits:2}],before=JSON.stringify(old);const plan=C.catalogPlan(old),updated=plan.catalog.find(c=>c.code==='BAE412');assert.equal(JSON.stringify(old),before);assert.deepEqual(updated.directions,['經濟學方向']);assert.equal(updated.notes,'');assert.equal(updated.credits,2);assert.ok(plan.changes.find(c=>c.code==='BAE412').fields.includes('移除舊版待確認備註'));assert.equal(C.catalogPlan(plan.catalog).changes.length,0);}
  const custom=C.catalogPlan([{...base,directions:[],notes:'自訂教務備註'}]).catalog.find(c=>c.code==='BAE412');assert.equal(custom.notes,'自訂教務備註');assert.deepEqual(custom.directions,['經濟學方向']);
 });
+
+test('faculty-confirmed undergraduate year lists match the catalogue and retain previously supplied BAE414/415',()=>{
+ const cs=state({}).catalog;
+ for(const [grade,start,end] of [['大一',101,106],['大二',201,208],['大三',301,312],['大四',401,413]])for(let n=start;n<=end;n++)assert.deepEqual(cs.find(c=>c.code==='BAE'+n).grades,[grade]);
+ for(const code of ['BAE414','BAE415'])assert.deepEqual(cs.find(c=>c.code===code).grades,['大四']);
+});
