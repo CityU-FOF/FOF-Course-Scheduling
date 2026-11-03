@@ -116,3 +116,11 @@
  .section-tabs{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:9px;background:#eaf4e9;border:1px solid #d5e4d2;border-radius:12px;margin:0 0 20px;position:sticky;top:10px;z-index:15}.section-tabs button{font:inherit;font-weight:600;border:0;border-radius:8px;background:transparent;color:#476b50;padding:11px 20px;min-height:44px}.section-tabs button.active{background:#fff;color:#116140;box-shadow:0 2px 7px #1b63351a}.utility-menu{position:relative;margin:0;font:inherit}.utility-menu>summary{list-style:none;color:#245b3c}.utility-menu>summary::-webkit-details-marker{display:none}.utility-actions{position:absolute;top:calc(100% + 9px);right:0;z-index:50;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:295px;padding:16px;background:white;border:1px solid #d3e5d3;border-radius:12px;box-shadow:0 14px 40px #173e2826}.utility-actions .btn{text-align:center;white-space:nowrap}.topbar .toolbar{align-items:center}.holiday-tools details p{max-width:550px}.section-tabs button:focus-visible,.utility-menu summary:focus-visible{outline:3px solid #c6a24e;outline-offset:2px}
  @media(max-width:850px){.section-tabs{top:0;padding:5px;gap:3px}.section-tabs button{padding:9px 12px}.utility-actions{right:auto;left:0}}
 }
+
+/* Subject details are shared; only class ranges and teacher ownership repeat. */
+.class-allocation{background:#f3faf6;border:1px solid #cbe2d5;border-radius:14px;padding:20px;margin-top:20px}
+.allocation-head{display:flex;align-items:center;gap:24px;margin-bottom:18px}.allocation-head>label{max-width:180px}.allocation-head strong{color:#176746}.allocation-head small{margin-top:6px}
+.assignment-row{display:grid;grid-template-columns:minmax(90px,.65fr) minmax(90px,.65fr) minmax(160px,1.3fr) minmax(220px,1.6fr) auto;align-items:end;gap:14px;margin-top:14px}.assignment-row>button{align-self:center}
+.allocation-footer{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-top:20px}.additional-workload-scroll{max-height:330px;overflow:auto}
+@media(max-width:1000px){.assignment-row{grid-template-columns:1fr 1fr}.assignment-row>label:nth-child(4){grid-column:auto}.class-allocation{padding:14px}}
+@media(max-width:600px){.assignment-row{grid-template-columns:1fr}.allocation-head{align-items:flex-start;gap:14px}.allocation-head small{overflow-wrap:anywhere}}

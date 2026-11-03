@@ -4,7 +4,7 @@ const state=(id,startDate,endDate,extra={})=>C.validate({unassignedBlocks:[],tim
 const holiday=(id,date,endDate=date,extra={})=>({id,date,endDate,name:'校曆假期',start:0,end:1440,enabled:true,source:'測試校曆',academicYear:'',semester:'',...extra});
 
 test('offline public holidays seed once and each semester gets only dates inside its own range',()=>{
- let d=C.ensureOfficialCalendar(state('upper','2026-08-24','2026-12-04'),official);assert.equal(d.schemaVersion,10);assert.equal(d.holidayCalendar.length,40);assert.deepEqual(d.holidays.map(h=>h.date),['2026-09-26','2026-10-01','2026-10-02','2026-10-18','2026-11-02']);assert.deepEqual(d.officialCalendarYears,[2026,2027]);
+ let d=C.ensureOfficialCalendar(state('upper','2026-08-24','2026-12-04'),official);assert.equal(d.schemaVersion,11);assert.equal(d.holidayCalendar.length,40);assert.deepEqual(d.holidays.map(h=>h.date),['2026-09-26','2026-10-01','2026-10-02','2026-10-18','2026-11-02']);assert.deepEqual(d.officialCalendarYears,[2026,2027]);
  d=C.createTerm(d,info('lower','下學期'),{...C.defaults,startDate:'2027-02-15',endDate:'2027-06-01'});assert.deepEqual(d.holidays.map(h=>h.date),['2027-03-26','2027-03-27','2027-04-05','2027-05-01','2027-05-13']);assert.equal(d.holidayCalendar.length,40);assert.equal(C.ensureOfficialCalendar(d,official).holidayCalendar.length,40);
 });
 
