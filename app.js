@@ -10,6 +10,8 @@ const FOFApp={setup(){
 
  const pendingMerge=ref(null);const data=reactive(initial),tab=ref('board'),view=ref('class'),selected=ref(''),search=ref(''),poolProgram=ref(''),classKey=ref(''),teacher=ref(''),roomView=ref(''),modal=ref(''),draft=ref({}),history=ref([]),future=ref([]),printKeys=ref([]),printPages=ref([]),holidayPreview=ref([]),holidayYear=ref(Number(initial.settings.startDate.slice(0,4))||2026),impactStatus=ref('all'),pressureDay=ref(1),pressureSlot=ref(1);
  const programs=C.programmes.map(p=>p.name);
+ const grades=['大一','大二','大三','大四','研一','研二','博一','博二','博三'];
+ const gradeRank=g=>{const n=grades.indexOf(g);return n<0?grades.length:n;};
  const nav=[{id:'setup',label:'資料與設定',sub:'科目・教室・校曆・限制',page:'subjects'},{id:'offerings',label:'開課計劃',sub:'選科目與建立課節',page:'offerings'},{id:'schedule',label:'排課工作台',sub:'課表・分佈・補課',page:'board'},{id:'workload',label:'教學時數',sub:'學期・全年・學期管理',page:'stats'}];
  const pageGroups={setup:[['subjects','科目資料庫'],['rooms','教室與人數'],['calendar','校曆假期'],['rules','排課限制']],offerings:[['offerings','本學期開課計劃']],schedule:[['board','每週課表'],['pressure','時段分佈與容量'],['holidays','假期與補課']],workload:[['stats','本學期時數'],['annual','全年與結轉'],['terms','學期管理']]};
  const activeSection=computed(()=>Object.keys(pageGroups).find(g=>pageGroups[g].some(([id])=>id===tab.value))||'schedule');
@@ -29,7 +31,7 @@ const FOFApp={setup(){
  const distributionCell=(day,slot)=>distribution.value.cells.find(c=>c.day===day&&c.slot===slot);
  const distributionItems=computed(()=>data.timetable.filter(i=>i.day===pressureDay.value&&i.slot===pressureSlot.value&&(distributionScope.value==='all'||C.isFOF(i.block))));
  const percent=n=>C.round(n)+'%';
- const classes=computed(()=>{const map=new Map();for(const b of allBlocks.value)map.set(C.cls(b),{key:C.cls(b),program:b.program,grade:b.grade,className:b.className,label:b.program+' · '+b.grade+b.className+'班'});return [...map.values()].sort((a,b)=>a.program.localeCompare(b.program)||a.grade.localeCompare(b.grade)||a.className.localeCompare(b.className));});
+ const classes=computed(()=>{const map=new Map();for(const b of allBlocks.value)map.set(C.cls(b),{key:C.cls(b),program:b.program,grade:b.grade,className:b.className,label:b.program+' · '+b.grade+b.className+'班'});return [...map.values()].sort((a,b)=>a.program.localeCompare(b.program)||gradeRank(a.grade)-gradeRank(b.grade)||a.grade.localeCompare(b.grade,'zh-Hant')||a.className.localeCompare(b.className,'zh-Hant',{numeric:true}));});
  watch(classes,list=>{if(!list.some(c=>c.key===classKey.value))classKey.value=list[0]?.key||'';},{immediate:true});
  const teachers=computed(()=>[...new Set([...allBlocks.value.map(b=>b.teacher),...data.additionalWorkload.map(r=>r.teacher)])].sort((a,b)=>a.localeCompare(b,'zh-Hant')));
  watch(teachers,list=>{if(!list.includes(teacher.value))teacher.value=list[0]||'';},{immediate:true});
@@ -90,7 +92,6 @@ const FOFApp={setup(){
  function poolDrop(event){returnPool(event.dataTransfer.getData('text/plain'));}
  function removePool(id){if(confirm('刪除此待排課節？可撤銷。'))mutate(d=>d.unassignedBlocks=d.unassignedBlocks.filter(b=>b.id!==id));}
  function lock(id){mutate(d=>{const b=d.timetable.find(i=>i.block.id===id)?.block;if(b)b.locked=!b.locked;});}
- const grades=['大一','大二','大三','大四','研一','研二','博一','博二','博三'];
  const offeringProgram=ref(programs[0]),selectedPlans=ref([]),annualYear=ref(data.termInfo.academicYear);
  const termList=computed(()=>C.allTerms(data).sort((a,b)=>b.termInfo.academicYear.localeCompare(a.termInfo.academicYear)||a.termInfo.semester.localeCompare(b.termInfo.semester)));
  const academicYears=computed(()=>[...new Set([...termList.value.map(t=>t.termInfo.academicYear),...termList.value.map(t=>C.shiftYear(t.termInfo.academicYear,1)),...data.workload.yearTargets.map(t=>t.academicYear)].filter(Boolean))].sort().reverse());
@@ -172,7 +173,7 @@ const FOFApp={setup(){
  function setPressureMode(mode){pressureMode.value=mode;if(mode==='distribution'&&!includeSunday.value&&pressureDay.value===7)pressureDay.value=1;}
  function selectPressure(day,slot){pressureDay.value=day;pressureSlot.value=slot;}
  function download(name,content,type){const url=URL.createObjectURL(new Blob([content],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
- function exportData(){download('FOF排課v4.2_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({...JSON.parse(snapshot()),exportedAt:new Date().toISOString()},null,2),'application/json');}
+ function exportData(){download('FOF排課v4.2.1_'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({...JSON.parse(snapshot()),exportedAt:new Date().toISOString()},null,2),'application/json');}
  async function importData(event){const file=event.target.files[0];if(!file)return;try{if(file.size>30*1024*1024)throw Error('檔案超過30MB');const incoming=C.ensureOfficialCalendar(C.validate(JSON.parse(await file.text())),FOFHolidayData);if(!confirm(`還原包含${incoming.archives.length+1}個學期的完整備份，將取代目前所有學期及年度設定。要保留其他學期請用「教學時數 → 學期管理 → 匯入單學期」。繼續？`))return;if(mutate(d=>Object.assign(d,incoming),true)){if(!localStore)stale=false;clearTermUI();notify('已還原完整工作簿；請核對學年、學期及排課檢查');}}catch(e){notify('未能匯入：'+e.message);}finally{event.target.value='';}}
  const activeHolidays=computed(()=>C.visibleTermHolidays(data));
  const calendarYears=computed(()=>[...new Set([...Object.keys(FOFHolidayData).map(Number),...data.holidayCalendar.flatMap(h=>[Number(h.date.slice(0,4)),Number(h.endDate.slice(0,4))])])].sort((a,b)=>a-b));
