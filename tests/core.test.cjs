@@ -68,7 +68,7 @@ test('Excel combines exact day/time patterns without inventing Cartesian combina
  const settings={...C.defaults,startDate:'2026-08-24',endDate:'2026-12-04'},b=block('a',{assessment:'閉卷考試',credits:3,courseType:'選修'});
  const make=(id,day,slot,extra={})=>({day,slot,block:{...b,id,...extra}});
  let d=state({settings,timetable:[make('a',1,1),make('b',1,2)]}),rows=C.scheduleRows(d);
- assert.equal(rows.length,1);assert.deepEqual(Object.keys(rows[0]),['科目編號','科目名','學分','必修/選修','班級','星期','時間','課室','上課期間']);assert.equal(rows[0]['星期'],'星期一');assert.equal(rows[0]['時間'],'09:00-10:15; 10:30-11:45');assert.equal(rows[0]['上課期間'],'2026.08.24-2026.11.27');
+ assert.equal(rows.length,1);assert.deepEqual(Object.keys(rows[0]),['科目編號','科目名','學分','必修/選修','班級','星期','時間','課室','上課期間','授課老師']);assert.equal(rows[0]['星期'],'星期一');assert.equal(rows[0]['時間'],'09:00-10:15; 10:30-11:45');assert.equal(rows[0]['上課期間'],'2026.08.24-2026.11.27');
  d=state({settings,timetable:[make('a',1,5),make('b',3,5)]});rows=C.scheduleRows(d);assert.equal(rows.length,1);assert.equal(rows[0]['星期'],'星期一、星期三');assert.equal(rows[0]['時間'],'15:00-16:15');
  d=state({settings,timetable:[make('a',1,1),make('b',1,2),make('c',3,1)]});assert.equal(C.scheduleRows(d).length,2);
  d=state({settings,timetable:[make('a',1,1),make('b',1,2,{room:'G2209'}),make('c',1,3,{faculty:'通識教育部',assessment:'報告/論文'})]});rows=C.scheduleRows(d);assert.equal(rows.length,3);assert.ok(rows.some(r=>r['上課期間']==='2026.08.24-2026.12.04'));assert.equal(rows[0]['學分'],3);

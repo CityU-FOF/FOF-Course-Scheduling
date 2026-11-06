@@ -1,6 +1,6 @@
 const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require('jsdom');
 const w=new JSDOM(fs.readFileSync('index.html','utf8'),{url:'https://split-classes.invalid/',runScripts:'outside-only'}).window;w.confirm=()=>true;w.print=()=>{};
-for(const f of ['vendor/vue.global.prod.js','vendor/xlsx.full.min.js','scheduler-core.js','enrolment-import.js','holiday-data.js','ui-colors.js','vendor/papaparse.min.js','vendor/interact.min.js','pointer-dnd.js'])w.eval(fs.readFileSync(f,'utf8'));
+for(const f of ['vendor/vue.global.prod.js','vendor/xlsx.full.min.js','scheduler-core.js','excel-export.js','enrolment-import.js','holiday-data.js','ui-colors.js','vendor/papaparse.min.js','vendor/interact.min.js','pointer-dnd.js'])w.eval(fs.readFileSync(f,'utf8'));
 const C=w.FOFCore,program=C.programmes[0].name;
 const seed={id:'keep',program,grade:'大二',className:'C',subjectCode:'GEF004',subject:'大學英語 IV',faculty:'通識教育部',assessment:'閉卷考試',teacher:'原教師',room:'G2106',headcount:50,enrolment:{base:50,cross:0,term:'261',sourceIds:['test']}};
 w.localStorage.setItem('fof_scheduling_v3',JSON.stringify({schemaVersion:11,unassignedBlocks:[{...seed,id:'other',className:'D',subjectCode:'BAE201',subject:'示例必修',teacher:'另一教師',faculty:'金融學院'}],timetable:[{day:1,slot:1,block:seed}]}));

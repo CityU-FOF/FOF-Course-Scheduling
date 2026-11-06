@@ -2,7 +2,7 @@ const {JSDOM}=require('jsdom'),{IDBFactory}=require('fake-indexeddb'),fs=require
 const until=async(fn)=>{const start=Date.now();while(!fn()){if(Date.now()-start>5000)throw Error('Timed out awaiting local persistence');await new Promise(r=>setTimeout(r,5));}};
 async function load(idb,initial,{failOpen=false}={}){
  const w=new JSDOM(fs.readFileSync('index.html','utf8'),{url:'https://storage-test.invalid/',runScripts:'outside-only'}).window;Object.defineProperty(w,'indexedDB',{value:idb});w.confirm=()=>true;w.print=()=>{};if(initial)w.localStorage.setItem('fof_scheduling_v3',JSON.stringify(initial));
- for(const f of ['vendor/vue.global.prod.js','vendor/xlsx.full.min.js','scheduler-core.js','workspace-storage.js','enrolment-import.js','holiday-data.js','ui-colors.js','vendor/papaparse.min.js','vendor/interact.min.js','pointer-dnd.js'])w.eval(fs.readFileSync(f,'utf8'));
+ for(const f of ['vendor/vue.global.prod.js','vendor/xlsx.full.min.js','scheduler-core.js','excel-export.js','workspace-storage.js','enrolment-import.js','holiday-data.js','ui-colors.js','vendor/papaparse.min.js','vendor/interact.min.js','pointer-dnd.js'])w.eval(fs.readFileSync(f,'utf8'));
  if(failOpen)w.FOFLocalStore.open=async()=>{throw Error('模擬無法開啟資料庫');};
  w.eval(fs.readFileSync('app.js','utf8').replace("createApp(FOFApp).mount('#app');","window.__app=createApp(FOFApp);window.__vm=window.__app.mount('#app');"));await until(()=>!!w.__vm);return w;
 }

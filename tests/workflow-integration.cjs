@@ -1,6 +1,6 @@
 const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require('jsdom');
 const w=new JSDOM(fs.readFileSync('index.html','utf8'),{url:'https://workflow-test.invalid/',runScripts:'outside-only'}).window;w.confirm=()=>true;w.print=()=>{};w.localStorage.setItem('fof_large_text','1');
-for(const file of ['vendor/vue.global.prod.js','vendor/xlsx.full.min.js','scheduler-core.js','workspace-storage.js','enrolment-import.js','holiday-data.js','ui-colors.js','vendor/papaparse.min.js','vendor/interact.min.js','pointer-dnd.js'])w.eval(fs.readFileSync(file,'utf8'));
+for(const file of ['vendor/vue.global.prod.js','vendor/xlsx.full.min.js','scheduler-core.js','excel-export.js','workspace-storage.js','enrolment-import.js','holiday-data.js','ui-colors.js','vendor/papaparse.min.js','vendor/interact.min.js','pointer-dnd.js'])w.eval(fs.readFileSync(file,'utf8'));
 w.eval(fs.readFileSync('app.js','utf8').replace("createApp(FOFApp).mount('#app');","window.__app=createApp(FOFApp);window.a=window.__app.mount('#app');"));
 const a=w.a,C=w.FOFCore,tick=()=>w.Vue.nextTick();
 const clickTab=async label=>{const button=[...w.document.querySelectorAll('[role="tab"]')].find(b=>b.textContent===label);assert.ok(button,label);button.click();await tick();};
