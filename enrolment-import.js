@@ -6,6 +6,7 @@ const crossSubjects=['BAE101','BAE102','BAE103','BAE104','BAE105','BAE106','BAE2
 const str=x=>String(x??'').trim(),norm=x=>str(x).normalize('NFKC').replace(/\s/g,'').toUpperCase();
 const roomName=x=>norm(x).replace(/^GDC-/,'');
 const gradeNumber=x=>({大一:1,大二:2,大三:3,大四:4,研一:1,研二:2,研三:3,博一:1,博二:2,博三:3}[str(x)]||Number(x));
+const sectionMatch=(source,target)=>!(C.sectionParent(source)||C.sectionParent(target))||source===target;
 const targetKey=b=>JSON.stringify([C.cls(b),norm(b.subjectCode)]);
 function targets(data){const map=new Map();for(const b of [...data.unassignedBlocks,...data.timetable.map(i=>i.block)]){const key=targetKey(b);if(!map.has(key))map.set(key,{key,block:b,blocks:[]});map.get(key).blocks.push(b);}return [...map.values()].map(t=>({...t,label:`${t.block.subjectCode} · ${t.block.program} · ${t.block.grade}${t.block.className}班 · ${t.block.subject}`}));}
 function parseTimes(value){const raw=str(value),cells=[],warnings=[];let m;const re=/星期([一二三四五六日天])\s*(\d{1,2})\/(\d{2}:\d{2})-(\d{2}:\d{2})/g;while((m=re.exec(raw))){const slot=Number(m[2]),day='一二三四五六日'.indexOf(m[1]==='天'?'日':m[1])+1;if(C.slots[slot-1]?.time!==m[3]+'-'+m[4]){warnings.push('節次與時間不符，該時段課室不自動配對');continue;}if(!cells.some(c=>c.day===day&&c.slot===slot))cells.push({day,slot,time:C.slots[slot-1].time});}
@@ -20,13 +21,13 @@ function parseWorkbook(wb,X){let rows=[],recognized=0;
 function aggregate(rows){const groups=new Map(),unresolved=[],seen=new Map(),duplicates=[],terms=new Set();
  for(const r of rows){const id=norm(r['科目總碼']),title=str(r['科目名稱']),m=title.match(/-\s*([A-Z]+\d+)-(.+)$/i),prefix=id.match(/^(\d{3})(BAECF|MFICF|MFTBF|DFICF)(\d)([A-Z])/),countRaw=r['正選人數'];
   if(!m||!prefix){unresolved.push({sheet:r.sheet,row:r.row,name:title,reason:'科目總碼或科目名稱格式未能配對'});continue;}
-  const subjectCode=m[1].toUpperCase(),suffix=norm(m[2]),cross=/跨課程/.test(suffix),cm=suffix.match(/^跨課程[併并](\d+)([A-Z]+)$/),base=suffix.match(/^([A-Z]+)$/);
+  const subjectCode=m[1].toUpperCase(),suffix=norm(m[2]),cross=/跨課程/.test(suffix),cm=suffix.match(/^跨課程[併并](\d+)([A-Z]+|[A-Z][1-9]\d?)$/),base=suffix.match(/^([A-Z]+|[A-Z][1-9]\d?)$/);
   if(cross&&!cm||!cross&&!base){unresolved.push({sheet:r.sheet,row:r.row,name:title,reason:'班級或跨課程併班標記不明'});continue;}
   const grade=cross?Number(cm[1]):Number(prefix[3]),className=cross?cm[2]:base[1],key=JSON.stringify([prefix[1],prefix[2],grade,className,subjectCode]);terms.add(prefix[1]);
   if(!groups.has(key))groups.set(key,{key,term:prefix[1],programCode:prefix[2],program:programmes[prefix[2]],grade,className,subjectCode,subject:title.slice(0,m.index).trim(),base:0,cross:0,total:null,bases:[],crosses:[],warnings:[],errors:[],cells:[],roomCandidates:[],capacity:null});const g=groups.get(key);
   const signature=JSON.stringify(['科目名稱','正選人數','教室節次館別','授課教師','教室容量','必選修別'].map(k=>r[k]??''));if(seen.has(id)){if(seen.get(id).signature!==signature){g.errors.push('同一科目總碼有互相矛盾資料，不能自動相加');groups.get(seen.get(id).key).errors.push('同一科目總碼有互相矛盾資料，不能自動相加');}else duplicates.push({id,sheet:r.sheet,row:r.row});continue;}seen.set(id,{signature,key});
   const count=Number(countRaw),valid=!(countRaw===''||countRaw===null||countRaw===undefined||typeof countRaw==='boolean')&&Number.isInteger(count)&&count>=0&&count<=10000;
-  if(!valid)g.errors.push('正選人數缺漏或不是0–10000整數');if(!id.endsWith(subjectCode+'00'))g.errors.push('科目名稱的編號與科目總碼不符');if(!cross&&(grade!==Number(prefix[3])||className!==prefix[4])){g.warnings.push('科目總碼班次與名稱班別不同，以名稱班別配對，請人工核對');g.needsReview=true;};
+  if(!valid)g.errors.push('正選人數缺漏或不是0–10000整數');const end=subjectCode+'00',idClass=id.endsWith(end)?id.slice(prefix[0].length-1,-end.length):prefix[4];if(!id.endsWith(end))g.errors.push('科目名稱的編號與科目總碼不符');if(!cross&&(grade!==Number(prefix[3])||className!==idClass)){g.warnings.push('科目總碼班次與名稱班別不同，以名稱班別配對，請人工核對');g.needsReview=true;};
   const schedule=parseTimes(r['教室節次館別']),source={id,name:title,count:valid?count:null,sheet:r.sheet,row:r.row,teacher:str(r['授課教師']),type:str(r['必選修別']),schedule,capacity:Number(r['教室容量'])||null};
   (cross?g.crosses:g.bases).push(source);g.warnings.push(...schedule.warnings);if(cross&&!crossSubjects.includes(subjectCode)){g.warnings.push('此科不在常見跨課程清單，請核對後勾選');g.needsReview=true;};
  }
@@ -38,7 +39,7 @@ function aggregate(rows){const groups=new Map(),unresolved=[],seen=new Map(),dup
  }
  return {groups:[...groups.values()],unresolved,duplicates,terms:[...terms],sourceRows:rows.length};
 }
-function review(parsed,data){const list=targets(data);return {...parsed,targets:list.map(t=>({key:t.key,label:t.label,code:norm(t.block.subjectCode)})),groups:parsed.groups.map(g=>{
+function review(parsed,data){const list=targets(data);return {...parsed,targets:list.map(t=>({key:t.key,label:t.label,code:norm(t.block.subjectCode),className:norm(t.block.className)})),groups:parsed.groups.map(g=>{
  const matches=list.filter(t=>norm(t.block.subjectCode)===g.subjectCode&&t.block.program===g.program&&gradeNumber(t.block.grade)===g.grade&&norm(t.block.className)===g.className);const target=matches.length===1?matches[0]:null;
  const warnings=[...g.warnings];if(!target)warnings.push(matches.length?'有多個配對，請選擇目標班級':'尚未配對現有科目班級');if(target?.blocks.some(b=>b.locked))warnings.push('目標有鎖定課節，請先解鎖再重新匯入');if(target&&target.blocks.some(b=>norm(b.teacher)!==norm(g.teacher)))warnings.push('教師名稱與現有資料不同；匯入不改教師，請核對目標');
  const scheduled=data.timetable.filter(i=>target?.blocks.some(b=>b.id===i.block.id));if(scheduled.some(i=>!g.cells.some(c=>c.day===i.day&&c.slot===i.slot)))warnings.push('部分已排節次與表內時間不同；保留該節課室，不移動時間');
@@ -51,7 +52,7 @@ const existingRoomName=(data,name)=>data.rooms.find(r=>roomName(r.name)===name)?
 function apply(data,review,options){
  const list=targets(data),used=new Set();let blocks=0,groups=0,rooms=0,roomCells=0;
  for(const g of review.groups.filter(g=>g.selected)){
-  if(g.errors.length||g.total===null)throw Error('所選班級有未解決的來源錯誤');const t=list.find(t=>t.key===g.targetKey);if(!t||norm(t.block.subjectCode)!==g.subjectCode)throw Error('請先為所選項目配對相同科目編號的班級');if(used.has(t.key))throw Error('多個匯入項目指向同一班級，請核對配對');used.add(t.key);if(t.blocks.some(b=>b.locked))throw Error('所選班級含鎖定課節，請先解鎖');groups++;
+  if(g.errors.length||g.total===null)throw Error('所選班級有未解決的來源錯誤');const t=list.find(t=>t.key===g.targetKey);if(!t||norm(t.block.subjectCode)!==g.subjectCode)throw Error('請先為所選項目配對相同科目編號的班級');if(!sectionMatch(g.className,norm(t.block.className)))throw Error('細班與母班或其他細班不可互相匯入人數');if(used.has(t.key))throw Error('多個匯入項目指向同一班級，請核對配對');used.add(t.key);if(t.blocks.some(b=>b.locked))throw Error('所選班級含鎖定課節，請先解鎖');groups++;
   for(const b of t.blocks){if(options.counts){b.headcount=g.total;b.enrolment={base:g.base,cross:g.cross,term:g.term,sourceIds:[...g.bases,...g.crosses].map(s=>s.id)};}
    if(options.rooms){const item=data.timetable.find(i=>i.block.id===b.id),assigned=item?g.assignments.find(c=>c.day===item.day&&c.slot===item.slot)?.room:g.poolRoom;if(assigned){const name=roomName(assigned);b.room=existingRoomName(data,name)||name;roomCells++;}}
    blocks++;
@@ -61,5 +62,5 @@ function apply(data,review,options){
  if(options.capacities)for(const r of review.capacities.filter(r=>r.selected)){if(!Number.isInteger(Number(r.capacity))||Number(r.capacity)<1||Number(r.capacity)>10000)throw Error('教室容量須為1–10000');const existing=data.rooms.find(x=>roomName(x.name)===r.name);if(existing)existing.capacity=Number(r.capacity);else data.rooms.push({name:existingRoomName(data,r.name)||r.name,capacity:Number(r.capacity)});rooms++;}
  if(options.confirmStage)data.settings.stage='confirmed';return {groups,blocks,rooms,roomCells};
 }
-return {programmes,crossSubjects,roomName,targetKey,targets,parseTimes,parseWorkbook,aggregate,review,apply};
+return {programmes,crossSubjects,sectionMatch,roomName,targetKey,targets,parseTimes,parseWorkbook,aggregate,review,apply};
 });
